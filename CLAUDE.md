@@ -6,7 +6,35 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 구슬을 떨어뜨려 추첨하는 2D 게임 [lazygyu/roulette](https://github.com/lazygyu/roulette) 을 3D 로 리팩터링하는 프로젝트다. 원본 소스는 `../roulette/` 에 클론돼 있으며 **참조 전용이고 수정하지 않는다.** 원본 구조에 대한 상세 설명은 `../CLAUDE.md` 에 있다.
 
-현재 상태: 문서만 있고 코드는 아직 없다. 단계별 계획과 진행 상황은 `docs/roadmap.md` 가 기준이며, 단계를 끝내면 그 문서의 체크박스를 갱신한다. 빌드·린트·테스트 명령은 1단계(스캐폴딩)에서 정해지므로 그때 이 파일에 추가한다.
+현재 상태: 1단계(스캐폴딩)까지 끝났다. 원본 코드를 Vite 환경으로 옮겼고 화면은 아직 2D 캔버스 그대로다. 단계별 계획과 진행 상황은 `docs/roadmap.md` 가 기준이며, 단계를 끝내면 그 문서의 체크박스를 갱신한다.
+
+## 명령어
+
+패키지 매니저는 pnpm 이다.
+
+```shell
+pnpm install
+pnpm dev                 # Vite 개발 서버, http://localhost:1236
+pnpm build               # 타입 검사 후 dist/ 에 빌드
+pnpm typecheck           # tsc --noEmit
+pnpm lint                # biome check --fix (src, scripts, tests)
+pnpm test                # vitest run
+pnpm vitest run tests/simulate.test.ts      # 테스트 파일 하나만
+pnpm vitest run -t 'parseName'              # 이름으로 테스트 하나만
+pnpm simulate bench 6,16,30   # 렌더링 없이 물리만 돌려 맵별 골인 시각 분포 출력
+pnpm simulate stuck 6,16,30   # 정지 판정 문턱 비교
+pnpm simulate goals 6,16,30   # 골인 시각 전체를 JSON 으로 출력
+```
+
+`tests/simulate.test.ts` 가 추첨 결과 회귀 테스트다. `tests/fixtures/simulate-goals.json` 은 **원본 코드**(lazygyu/roulette `e9a9d22`)로 뽑은 골인 시각이며, 이 프로젝트의 물리와 맵이 같은 값을 내는지 비교한다. 테스트가 깨졌다고 이 프로젝트의 출력으로 기준 파일을 다시 만들면 안 된다. 물리나 맵 데이터를 의도적으로 바꾼 경우에만, 사용자 확인을 받고 갱신한다.
+
+## 원본과 달라진 점
+
+- 빌드가 Parcel 에서 Vite 로 바뀌었다. 아이콘과 `manifest.json` 은 `public/` 에 있고, `assets/` 는 번들에 포함되는 스타일과 이미지다.
+- 광고(`adService`, `adRenderer`), 키워드 스프라이트(`keywordService`), 맵 공유마당(`communityMaps`, `mapBrowser`), 분석 스크립트, 서비스워커를 제거했다. `mapSelector.ts` 는 기본 맵만 다루도록 다시 썼다. `StageDef.adBoards` 는 맵 형식 호환을 위해 타입에만 남아 있고 그리지 않는다.
+- 결과 팝업의 닫기 버튼 그리기는 `adRenderer` 에서 `src/closeButton.ts` 로 옮겼다.
+- `index.html` 의 인라인 스크립트는 원본 구조 그대로이며 `window.roulette`, `window.options`, `window.initMapSelector` 전역을 쓴다. Biome 과 타입 검사가 이 스크립트는 보지 않는다.
+- `tsconfig.json` 의 `useDefineForClassFields: false` 는 원본(target es2017)의 클래스 필드 동작을 유지하기 위한 것이다.
 
 ## 확정된 방향: 2.5D
 
@@ -25,6 +53,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 물리 | box2d-wasm (원본 유지) |
 | 빌드 | Vite |
 | 테스트 | Vitest + 원본에서 가져온 `simulate` 스크립트 |
+| 패키지 매니저 | pnpm |
 | 린트·포맷 | Biome (원본 설정 유지: 2칸 스페이스, 작은따옴표, 세미콜론, 줄 폭 120) |
 
 ## 설계 원칙

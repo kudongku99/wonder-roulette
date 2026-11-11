@@ -6,7 +6,22 @@
 
 ## 현재 상태
 
-계획 단계입니다. 아직 실행 가능한 코드가 없습니다. 진행 상황은 [docs/roadmap.md](docs/roadmap.md) 를 참고해 주세요.
+원본 코드를 새 빌드 환경으로 옮긴 단계입니다. 게임은 동작하지만 화면은 아직 원본과 같은 2D 입니다. 진행 상황은 [docs/roadmap.md](docs/roadmap.md) 를 참고해 주세요.
+
+## 실행
+
+```shell
+pnpm install
+pnpm dev
+```
+
+개발 서버는 http://localhost:1236 에서 열립니다.
+
+```shell
+pnpm build      # 프로덕션 빌드
+pnpm test       # 테스트
+pnpm lint       # 린트와 포맷
+```
 
 ## 접근 방식
 
@@ -29,6 +44,6 @@
 
 ## 라이선스와 출처
 
-원본 소스 코드는 [MIT License](https://github.com/lazygyu/roulette/blob/main/LICENSE) 로 배포됩니다.
+원본 소스 코드는 MIT License 로 배포되며, 원본의 저작권 고지는 [LICENSE](LICENSE) 에 그대로 있습니다.
 
 "Marble Roulette"™ 및 "마블 룰렛"™ 은 lazygyu 의 상표이며, 이 프로젝트는 해당 명칭을 프로젝트명이나 브랜딩으로 사용하지 않습니다.

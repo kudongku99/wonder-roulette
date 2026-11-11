@@ -1,0 +1,28 @@
+{
+  "name": "roulette-3d",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check --fix src/ scripts/ tests/",
+    "test": "vitest run",
+    "simulate": "tsx scripts/simulate.ts"
+  },
+  "dependencies": {
+    "box2d-wasm": "7.0.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.4.4",
+    "@types/node": "^26.6.6",
+    "sass": "^1.108.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.7",
+    "vitest": "^5.1.0"
+  }
+}

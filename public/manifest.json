@@ -1,0 +1,13 @@
+{
+  "name": "roulette-3d",
+  "short_name": "roulette-3d",
+  "icons": [
+    {
+      "src": "icons/android-icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone"
+}
