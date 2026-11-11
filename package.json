@@ -14,11 +14,13 @@
     "simulate": "tsx scripts/simulate.ts"
   },
   "dependencies": {
-    "box2d-wasm": "7.0.0"
+    "box2d-wasm": "7.0.0",
+    "three": "^0.187.0"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.4",
     "@types/node": "^26.6.6",
+    "@types/three": "^0.187.0",
     "sass": "^1.108.1",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",

@@ -8,6 +8,7 @@ import { MINIMAP_INSET, MINIMAP_WIDTH } from './minimap';
 import type { WinnerRange } from './options';
 import type { ParticleManager } from './particleManager';
 import { Canvas2dWorldRenderer } from './render/canvas2dWorldRenderer';
+import { ThreeWorldRenderer } from './render/three/threeWorldRenderer';
 import type { WorldDebugDraw, WorldRenderer } from './render/worldRenderer';
 import type { SkillEffect } from './skillEffect';
 import type { ColorTheme } from './types/ColorTheme';
@@ -60,8 +61,17 @@ export class RouletteRenderer {
     this._world = this.createWorldRenderer();
   }
 
+  /** 기본은 3D. 주소에 ?renderer=2d 를 붙이거나 WebGL 을 쓸 수 없으면 2D 로 그린다 */
   protected createWorldRenderer(): WorldRenderer {
-    return new Canvas2dWorldRenderer();
+    if (new URLSearchParams(location.search).get('renderer') === '2d') {
+      return new Canvas2dWorldRenderer();
+    }
+    try {
+      return new ThreeWorldRenderer();
+    } catch (e) {
+      console.error('WebGL 렌더러를 만들지 못해 2D 로 그립니다', e);
+      return new Canvas2dWorldRenderer();
+    }
   }
 
   get width() {

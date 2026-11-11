@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 구슬을 떨어뜨려 추첨하는 2D 게임 [lazygyu/roulette](https://github.com/lazygyu/roulette) 을 3D 로 리팩터링하는 프로젝트다. 원본 소스는 `../roulette/` 에 클론돼 있으며 **참조 전용이고 수정하지 않는다.** 원본 구조에 대한 상세 설명은 `../CLAUDE.md` 에 있다.
 
-현재 상태: 2단계(렌더 경계 분리)까지 끝났다. 월드 그리기가 교체 가능한 `WorldRenderer` 뒤로 옮겨졌고, 구현은 아직 2D 캔버스 하나뿐이라 화면은 원본과 같다. 단계별 계획과 진행 상황은 `docs/roadmap.md` 가 기준이며, 단계를 끝내면 그 문서의 체크박스를 갱신한다.
+현재 상태: 3단계(3D 월드 렌더러)까지 끝났다. 기본 화면이 Three.js 로 그려지고, 장애물과 구슬만 3D 로 나온다. 구슬 이름·스킨·당첨 강조, 스킬 이펙트, 디버그 표시는 아직 3D 에 없다(4단계). 단계별 계획과 진행 상황은 `docs/roadmap.md` 가 기준이며, 단계를 끝내면 그 문서의 체크박스를 갱신한다.
 
 ## 명령어
 
@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```shell
 pnpm install
-pnpm dev                 # Vite 개발 서버, http://localhost:1236
+pnpm dev                 # Vite 개발 서버, http://localhost:1236 (?renderer=2d 를 붙이면 2D 로 그린다)
 pnpm build               # 타입 검사 후 dist/ 에 빌드
 pnpm typecheck           # tsc --noEmit
 pnpm lint                # biome check --fix (src, scripts, tests)
@@ -34,10 +34,20 @@ pnpm simulate goals 6,16,30   # 골인 시각 전체를 JSON 으로 출력
 
 - `WorldRenderer`(`src/render/worldRenderer.ts`)가 월드(배경, 장애물, 이펙트, 구슬)를 그리는 인터페이스다. `render(target, frame)` 은 2D 장면 캔버스 컨텍스트를 받아 그 캔버스 전체를 채운다. 3D 구현도 같은 시그니처로, WebGL 로 그린 결과를 `target` 에 옮겨 그리면 된다.
 - `WorldFrame` 이 한 프레임의 입력이다. 물리 좌표 그대로의 카메라 `(x, y, zoom)`, 엔티티 상태, 구슬, 이펙트, 테마, 당첨 강조 범위, 스킨 조회 함수를 담는다.
-- 현재 구현은 `Canvas2dWorldRenderer` 하나다. 렌더러 교체 지점은 `RouletteRenderer.createWorldRenderer()` 다.
+- 구현은 둘이다. 기본은 `ThreeWorldRenderer`(`src/render/three/`), 주소에 `?renderer=2d` 가 있거나 WebGL 렌더러 생성이 실패하면 `Canvas2dWorldRenderer` 다. 고르는 곳은 `RouletteRenderer.createWorldRenderer()` 다.
+- 새 그리기 요소를 넣을 때는 `WorldFrame` 에 필요한 값을 싣고 두 구현에 각각 그린다. 2D 구현은 원본 화면의 기준이라 기능을 빼지 않는다.
 - `RouletteRenderer` 는 캔버스 생성·리사이즈, 월드 렌더러 호출, 그 위의 HUD(`UIObject[]`, 파티클, 당첨자 표시), 표시용 캔버스 복사를 맡는다.
 - `Marble`, `Camera`, `SkillEffect` 는 그리기 코드가 없는 상태 객체다. 그릴 때 필요한 값은 `marble.coolTimeRatio`, `effect.progress` 같은 읽기 전용 값으로 내놓는다. 이 클래스들에 `render` 메서드를 다시 넣지 않는다.
 - 미니맵은 HUD 라서 구슬과 장애물을 자체적으로 2D 로 그린다(`src/minimap.ts`).
+
+### 3D 렌더러
+
+- `ThreeWorldRenderer` 는 화면에 붙지 않은 자체 WebGL 캔버스에 그린 뒤 `target.drawImage` 로 장면 캔버스에 옮긴다. 같은 태스크 안에서 바로 복사하므로 `preserveDrawingBuffer` 가 필요 없다.
+- 좌표 변환은 두 곳뿐이다. `_world` 그룹의 `scale.y = -1` 과 `applyView2d`(`cameraRig.ts`). 그 아래에 붙는 메시(`StageMeshes`, `MarbleMeshes`)는 물리 좌표와 물리 각도를 그대로 쓴다. 메시 코드에서 y 나 각도의 부호를 따로 뒤집지 않는다.
+- `applyView2d` 는 2D 카메라의 `(x, y, zoom)` 을 원근 카메라 거리로 바꾼다. z = 0 평면에서 보이는 세로 범위가 2D 와 같아지게 해서 미니맵의 뷰포트 표시와 카메라 추적 로직이 그대로 맞는다. `CAMERA_TILT` 만큼 위에서 내려다본다.
+- `StageMeshes.sync` 는 엔티티의 `shape` 객체 동일성으로 메시를 대응시킨다. `physics.getEntities()` 가 매 프레임 새 객체를 돌려주지만 `shape` 는 맵 데이터의 객체 그대로이기 때문이다. polyline 은 선분마다 얇은 박스를 만들어 하나로 합친다.
+- 구슬은 `InstancedMesh` 하나이고, 구슬 수가 용량을 넘으면 두 배씩 키워 새로 만든다.
+- WebGL 이 필요한 `ThreeWorldRenderer` 자체는 테스트하지 않는다. GL 없이 돌아가는 `cameraRig`, `StageMeshes`, `MarbleMeshes` 를 단위 테스트한다. 화면은 개발 서버에서 직접 확인한다.
 
 ## 원본과 달라진 점
 
@@ -74,7 +84,6 @@ pnpm simulate goals 6,16,30   # 골인 시각 전체를 JSON 으로 출력
 - **HUD 는 2D 캔버스 그대로**: 순위표, 미니맵, 당첨자 표시, 배속 버튼은 원본의 `UIObject` 코드를 재사용한다. WebGL 결과를 2D 장면 캔버스에 그린 뒤 그 위에 HUD 를 그리고 표시용 캔버스로 복사하는 원본의 합성 구조를 유지한다. 녹화(`VideoRecorder`)가 표시용 캔버스 하나만 찍기 때문이다.
 - **구슬은 `InstancedMesh`**: 구슬 1,000개 규모까지 다뤄야 하므로 구슬마다 메시를 만들지 않는다.
 - **카메라**: 원본 `Camera` 의 `(x, y, zoom)` 을 계산 결과로 계속 쓰고, 이를 원근 카메라의 위치·거리로 매핑하는 어댑터를 둔다. 추적 로직을 3D 용으로 다시 쓰지 않는다.
-- **렌더러 교체 지점**: `RouletteRenderer.createWorldRenderer()` 가 반환하는 구현을 Three.js 것으로 바꾼다. HUD 와 합성 코드는 건드리지 않는다.
 
 ## 제약
 
