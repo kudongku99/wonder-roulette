@@ -117,18 +117,18 @@
 
 ## 7단계: 캔버스 하나와 HTML HUD
 
-- [ ] WebGL 캔버스를 화면에 직접 붙이고 장면·표시 캔버스 이중 구조, `sizeFactor`, 마우스 좌표 변환을 없앤다
-- [ ] `WorldRenderer` 인터페이스를 접는다. 구현이 하나라 `ThreeWorldRenderer` 가 `WorldFrame` 을 직접 받는다
-- [ ] HUD 층: 캔버스 위에 겹친 HTML 루트. `Roulette` 은 DOM 을 모르고 프레임마다 읽기 전용 상태(순위, 구슬 화면 좌표, 골인 이벤트)를 내놓고, HUD 모듈이 그것을 읽는다
-- [ ] 디자인 토큰(색, 발광 테두리, 간격)과 글꼴 번들. 외부 CDN 을 쓰지 않는다
-- [ ] 랭킹 보드: 순서나 골인 상태가 바뀐 행만 DOM 을 고친다
-- [ ] 배속 버튼
-- [ ] Winner 표시, 도착 알림
-- [ ] 미니맵: 틀은 HTML, 맵·구슬·뷰포트는 작은 캔버스. 마우스를 올린 위치로 카메라 이동은 DOM 이벤트로 다시 잇는다
-- [ ] 구슬 이름 라벨: 구슬마다 HTML 요소를 재사용하고 `transform` 만 프레임마다 갱신한다. 투영 계산은 `marbleOverlay` 의 것을 순수 함수로 남겨 단위 테스트한다
-- [ ] 선두 구슬 강조는 라벨 스타일로 (당첨 테두리 대체)
-- [ ] `UIObject`, `RankRenderer`, 캔버스판 `Minimap`·`FastForwader`, `drawMarbleOverlay` 삭제 (테스트 도우미 `recordingContext` 포함)
-- [ ] 디버그 표시(`DebugPlane`)는 3D 장면 안의 텍스처라 그대로 둔다
+- [x] WebGL 캔버스를 화면에 직접 붙이고 장면·표시 캔버스 이중 구조, `sizeFactor`, 마우스 좌표 변환을 없앤다
+- [x] `WorldRenderer` 인터페이스를 접는다. 구현이 하나라 `ThreeWorldRenderer` 가 `WorldFrame` 을 직접 받는다
+- [x] HUD 층: 캔버스 위에 겹친 HTML 루트. `Roulette` 은 DOM 을 모르고 프레임마다 읽기 전용 상태(순위, 구슬 화면 좌표, 골인 이벤트)를 내놓고, HUD 모듈이 그것을 읽는다
+- [x] 디자인 토큰(색, 발광 테두리, 간격)과 글꼴 번들. 외부 CDN 을 쓰지 않는다
+- [x] 랭킹 보드: 순서나 골인 상태가 바뀐 행만 DOM 을 고친다
+- [x] 배속 버튼 (캔버스를 누르고 있는 방식 대신 켜고 끄는 버튼)
+- [x] Winner 표시, 도착 알림
+- [x] 미니맵: 틀은 HTML, 맵·구슬·뷰포트는 작은 캔버스. 마우스를 올린 위치로 카메라 이동은 DOM 이벤트로 다시 잇는다
+- [x] 구슬 이름 라벨: 구슬마다 HTML 요소를 재사용하고 `transform` 만 프레임마다 갱신한다. 투영 계산은 `marbleOverlay` 의 것을 순수 함수로 남겨 단위 테스트한다
+- [x] 선두 구슬 강조는 라벨 스타일로 (당첨 테두리 대체)
+- [x] `UIObject`, `RankRenderer`, 캔버스판 `Minimap`·`FastForwader`, `drawMarbleOverlay` 삭제 (테스트 도우미 `recordingContext` 포함)
+- [x] 디버그 표시(`DebugPlane`)는 3D 장면 안의 텍스처라 그대로 둔다
 
 완료 기준: 화면에 캔버스가 하나뿐이고, HUD 가 창 크기와 무관하게 선명하며, 구슬 100개에서 라벨 갱신이 프레임을 떨어뜨리지 않는다.
 

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 구슬을 떨어뜨려 추첨하는 2D 게임 [lazygyu/roulette](https://github.com/lazygyu/roulette) 을 3D 로 리팩터링하는 프로젝트다. 원본 소스는 `../roulette/` 에 클론돼 있으며 **참조 전용이고 수정하지 않는다.** 원본 구조에 대한 상세 설명은 `../CLAUDE.md` 에 있다.
 
-현재 상태: 6단계(기능 제거)까지 끝났다. 6단계부터는 원본과의 기능 동등성을 내려놓고 3D 전용 추첨 게임으로 다시 짜는 중이다. 스킬, 녹화, 라이트 테마, 가중치, 당첨 순위 설정, 구슬 스킨, 맵 파일 불러오기, 2D 렌더러를 없앴고, 다음은 7단계(WebGL 캔버스 하나 + HTML HUD)다. 단계별 계획과 바뀐 결정은 `docs/roadmap.md` 에 있다. 아래의 캔버스 HUD 와 장면·표시 캔버스 합성은 7단계에서 없어질 현재 코드의 모습이다.
+현재 상태: 7단계(캔버스 하나와 HTML HUD)까지 끝났다. 6단계부터는 원본과의 기능 동등성을 내려놓고 3D 전용 추첨 게임으로 다시 짜는 중이다. 다음은 8단계(UI 를 TypeScript 모듈로 옮기고 로비 → 맵 선택 → 게임 → 결과 화면 흐름을 만든다)다. 단계별 계획과 바뀐 결정은 `docs/roadmap.md` 에 있다. 이름 입력과 맵 선택이 있는 설정 패널(`index.html`)은 8단계에서 없어질 원본 구조다.
 
 ## 명령어
 
@@ -30,28 +30,30 @@ pnpm simulate goals 6,16,30   # 골인 시각 전체를 JSON 으로 출력
 
 ## 렌더 구조
 
-- `WorldRenderer`(`src/render/worldRenderer.ts`)가 월드(배경, 장애물, 구슬, 축하 효과)를 그리는 인터페이스이고 구현은 `ThreeWorldRenderer`(`src/render/three/`) 하나다. 2D 렌더러는 없다. WebGL 렌더러를 만들지 못하면 `RouletteRenderer` 생성자가 예외를 던지고, `src/index.ts` 가 게임 대신 안내 문구만 보여준다.
-- `render(target, frame)` 은 표시용 캔버스의 2D 컨텍스트를 받아 표시 해상도로 월드를 채운다. 절반 해상도의 장면 캔버스는 HUD 만 담은 투명한 층이고, 월드 위에 확대돼 올라간다. 7단계에서 이 합성 구조와 인터페이스를 없애고 WebGL 캔버스를 화면에 직접 둔다.
-- `frame.viewSize` 는 장면 캔버스 크기이고 보이는 월드 범위의 기준이다. `target` 캔버스가 이보다 크면 같은 범위를 더 높은 해상도로 그린다는 뜻이다.
-- `WorldFrame` 이 한 프레임의 입력이다. 물리 좌표 그대로의 카메라 `(x, y, zoom)`, 엔티티 상태, 구슬, 골인 축하 효과(`GoalBurst`), 강조할 구슬의 인덱스(`winningIndex`)를 담는다. 새 그리기 요소를 넣을 때는 여기에 필요한 값을 싣는다.
-- 색은 `src/data/constants.ts` 의 `theme` 하나(다크)다. 테마를 고르는 코드는 없고, 필요한 곳에서 직접 가져다 쓴다.
-- `RouletteRenderer` 는 캔버스 생성·리사이즈, 월드 렌더러 호출, 그 위의 HUD(`UIObject[]`, Winner 표시), 표시용 캔버스 복사를 맡는다.
+화면은 WebGL 캔버스 하나와 그 위에 겹친 HTML HUD 로 이뤄진다.
+
+- `ThreeWorldRenderer`(`src/render/three/`)가 월드(배경, 장애물, 구슬, 축하 효과)를 그린다. 자기 WebGL 캔버스를 `attach` 로 화면에 직접 붙이고 크기 변화에 맞춰 해상도를 고친다. WebGL 렌더러를 만들지 못하면 생성자가 예외를 던지고, `src/index.ts` 가 게임 대신 안내 문구만 보여준다.
+- `WorldFrame`(`src/render/worldFrame.ts`)이 월드 한 프레임의 입력이다. 물리 좌표 그대로의 카메라 `(x, y, zoom)`, 엔티티 상태, 구슬, 골인 축하 효과(`GoalBurst`)를 담는다. 새 그리기 요소를 넣을 때는 여기에 필요한 값을 싣는다.
+- `renderer.viewSize` 는 보이는 월드 범위의 기준이 되는 화면 크기다(줌 1 일 때 이 크기 / `initialZoom` 만큼 보인다). 캔버스 픽셀 크기와는 별개다. 카메라 추적과 미니맵의 화면 범위 표시가 이 값을 쓴다.
+- HUD 는 `src/hud/` 의 HTML 모듈이다. `Roulette` 은 HUD 를 모른다. 프레임을 그릴 때마다 `onFrame` 으로 읽기 전용 상태 `HudFrame`(순위, 골인한 구슬, 1등, 카메라, 화면에 보이는 구슬의 위치)을 넘기고, `Hud.update` 가 그것을 읽어 그린다. HUD 가 게임에 시키는 일은 `HudActions`(빨리 감기, 카메라 이동) 뿐이며 `src/index.ts` 가 둘을 잇는다.
+- HUD 모듈은 달라진 것만 DOM 에 쓴다. `RankBoard` 는 구슬마다 행 하나를 계속 쓰고 순서는 CSS `order` 로 정한다. `MarbleLabels` 는 이름표 요소를 재사용하며 프레임마다 `transform` 만 바꾼다. 프레임마다 도는 코드에서 레이아웃을 읽지 않는다(HUD 크기는 `ResizeObserver` 로 받아 둔다).
+- 미니맵은 틀만 HTML 이고 맵·구슬·화면 범위는 작은 2D 캔버스에 그린다(`src/hud/minimap.ts`).
+- 스타일은 `assets/hud.scss` 에 있고 맨 위의 CSS 변수가 디자인 토큰(네온 아케이드: 색, 발광 테두리, 간격, 글꼴)이다. 새 화면도 이 토큰을 쓴다. 글꼴(Black Han Sans, Pretendard)은 npm 패키지로 번들에 들어가며 외부 CDN 을 쓰지 않는다.
+- 색 중 3D 와 미니맵이 같이 쓰는 것은 `src/data/constants.ts` 의 `theme` 이다. 테마를 고르는 코드는 없다.
 - `Marble`, `Camera` 는 그리기 코드가 없는 상태 객체다. 이 클래스들에 `render` 메서드를 다시 넣지 않는다.
-- 미니맵은 HUD 라서 구슬과 장애물을 자체적으로 2D 로 그린다(`src/minimap.ts`).
 
 ### 3D 렌더러
 
-- `ThreeWorldRenderer` 는 화면에 붙지 않은 자체 WebGL 캔버스에 그린 뒤 `target.drawImage` 로 표시용 캔버스에 옮긴다. 같은 태스크 안에서 바로 복사하므로 `preserveDrawingBuffer` 가 필요 없다.
 - 좌표 변환은 두 곳뿐이다. `_world` 그룹의 `scale.y = -1` 과 `applyView2d`(`cameraRig.ts`). 그 아래에 붙는 메시(`StageMeshes`, `MarbleMeshes`)는 물리 좌표와 물리 각도를 그대로 쓴다. 메시 코드에서 y 나 각도의 부호를 따로 뒤집지 않는다.
-- `applyView2d` 는 2D 카메라의 `(x, y, zoom)` 을 원근 카메라 거리로 바꾼다. z = 0 평면에서 보이는 세로 범위가 2D 와 같아지게 해서 미니맵의 뷰포트 표시와 카메라 추적 로직이 그대로 맞는다. `CAMERA_TILT` 만큼 위에서 내려다보고, 결승 연출로 2D 줌이 1 을 넘으면 `finishAngle` 이 줌에 비례해 더 기울이고 좌우로 천천히 돈다. 연출 판정 자체는 2D 카메라의 줌 값을 읽을 뿐 따로 하지 않는다.
+- `applyView2d` 는 2D 카메라의 `(x, y, zoom)` 을 원근 카메라 거리로 바꾼다. z = 0 평면에서 보이는 세로 범위가 2D 카메라와 같아지게 해서 미니맵의 화면 범위 표시와 카메라 추적 로직이 그대로 맞는다. `CAMERA_TILT` 만큼 위에서 내려다보고, 결승 연출로 2D 줌이 1 을 넘으면 `finishAngle` 이 줌에 비례해 더 기울이고 좌우로 천천히 돈다. 연출 판정 자체는 2D 카메라의 줌 값을 읽을 뿐 따로 하지 않는다.
 - `StageMeshes.sync` 는 엔티티의 `shape` 객체 동일성으로 메시를 대응시킨다. `physics.getEntities()` 가 매 프레임 새 객체를 돌려주지만 `shape` 는 맵 데이터의 객체 그대로이기 때문이다. polyline 은 선분마다 얇은 박스를 만들어 하나로 합친다.
 - 구슬은 전부 `InstancedMesh` 하나이고, 구슬 수가 용량을 넘으면 두 배씩 키워 새로 만든다.
-- 화면에서 크기가 일정해야 하는 표시(구슬 이름, 1등 후보 테두리)는 3D 로 만들지 않고 `drawMarbleOverlay` 가 WebGL 결과를 복사한 뒤 그 위에 2D 로 그린다. 구슬 중심과 반지름을 카메라로 투영해 위치를 잡는다.
+- 구슬 이름표는 3D 로 만들지 않는다. `projectMarble`(`marbleProjection.ts`)이 구슬 중심과 반지름을 카메라로 투영해 화면 비율 좌표를 내고, HUD 의 `MarbleLabels` 가 그 자리에 HTML 요소를 놓는다.
 - 조명은 방향광 하나(그림자 포함), 약한 주변광, `RoomEnvironment` 환경광이다. 그림자를 받는 배경판과 그림자 카메라 범위는 매 프레임 `followView` 가 보이는 곳으로 옮긴다.
 - 장애물 재질에는 항상 자체 발광이 들어가고 `EffectComposer` 로 블룸을 건다. 밝기 값들은 화면을 보며 맞춘 것이라, 바꿀 때는 화면으로 확인한다.
 - 골인 축하 효과(`ConfettiMeshes`)는 시드와 경과 시간만으로 조각 위치를 계산해 프레임 사이 상태가 없다.
 - 디버그 그림은 `DebugPlane` 이 2D 캔버스에 한 번 그려 장애물 뒤쪽 평면의 텍스처로 쓴다. `WorldDebugDraw` 는 월드 좌표로 그리는 2D 함수 그대로다.
-- WebGL 이 필요한 `ThreeWorldRenderer` 자체는 테스트하지 않는다. GL 없이 돌아가는 `cameraRig`, `StageMeshes`, `MarbleMeshes`, `ConfettiMeshes`, `drawMarbleOverlay` 를 단위 테스트한다. `DebugPlane` 은 DOM 캔버스가 필요해 테스트가 없다. 화면은 개발 서버에서 직접 확인한다.
+- WebGL 이 필요한 `ThreeWorldRenderer` 자체는 테스트하지 않는다. GL 없이 돌아가는 `cameraRig`, `StageMeshes`, `MarbleMeshes`, `ConfettiMeshes`, `projectMarble` 을 단위 테스트한다. HUD 는 DOM 이 필요 없는 계산(`rankRows`)만 테스트한다. `DebugPlane` 은 DOM 캔버스가 필요해 테스트가 없다. 화면은 개발 서버에서 직접 확인한다.
 
 ## 원본과 달라진 점
 
@@ -60,7 +62,7 @@ pnpm simulate goals 6,16,30   # 골인 시각 전체를 JSON 으로 출력
 - 게임 기능을 줄였다(6단계). 스킬(충격파), 녹화, 라이트 테마, 가중치(`이름/3`), 당첨 순위 설정(당첨자는 항상 1등), 구슬 스킨, 맵 파일 불러오기, `?names=` 주소 파라미터, 2D 렌더러가 없다. 이름 문법은 `이름*N` 만 남았고 `/` 는 이름의 일부다.
 - 구슬은 총 100개(`MAX_MARBLES`)까지다. `Roulette.setMarbles` 가 `limitMembers` 로 합계를 넘기는 항목을 통째로 빼고, 뺀 항목을 돌려준다.
 - 게임은 아직 1등이 골인하는 순간 끝난다. 전원 골인까지 진행하도록 바꾸는 것은 8단계다.
-- `Marble`, `Camera` 의 그리기 코드와 `GameObject` 인터페이스는 없앴다. 원본에서 비공개 커스텀 빌드용으로 열어둔 `onBeforeEntities` / `onAfterScene` 훅도 없다.
+- 원본의 2D 캔버스 그리기는 남아 있지 않다. `Marble`, `Camera` 의 그리기 코드, `GameObject` / `UIObject` 인터페이스, 캔버스 순위표·미니맵, 장면·표시 캔버스 합성을 없앴다. 빨리 감기는 캔버스를 누르고 있는 방식에서 HUD 의 켜고 끄는 버튼으로 바뀌었다. 원본에서 비공개 커스텀 빌드용으로 열어둔 `onBeforeEntities` / `onAfterScene` 훅도 없다.
 - `index.html` 의 인라인 스크립트는 원본 구조를 줄인 것이며 `window.roulette`, `window.initMapSelector` 전역을 쓴다. Biome 과 타입 검사가 이 스크립트는 보지 않는다. 8단계에서 TypeScript 모듈로 옮긴다.
 - `tsconfig.json` 의 `useDefineForClassFields: false` 는 원본(target es2017)의 클래스 필드 동작을 유지하기 위한 것이다.
 
@@ -87,7 +89,7 @@ pnpm simulate goals 6,16,30   # 골인 시각 전체를 JSON 으로 출력
 ## 설계 원칙
 
 - **좌표계**: 물리 월드는 y 가 아래로 증가한다(중력 `(0, 10)`). Three.js 는 y 가 위다. 변환은 3D 렌더 계층 한 곳에서만 하고, 게임 로직에는 물리 좌표만 흐르게 한다.
-- **HUD 는 HTML/CSS 로 옮긴다**: 지금은 원본의 `UIObject` 코드로 2D 캔버스에 그리고 WebGL 결과와 합성한다. 이 구조는 녹화가 표시용 캔버스 하나만 찍기 때문에 있었고, 녹화가 없어졌으므로 7단계에서 WebGL 캔버스 하나 + HTML HUD 로 바꾼다. 캔버스 HUD 에 새 기능을 더하지 않는다.
+- **HUD 는 HTML/CSS**: 화면에 붙는 캔버스는 WebGL 캔버스 하나다. 순위표, 이름표, Winner 표시 같은 2D 표시는 캔버스에 그리지 않고 `src/hud/` 의 HTML 로 만든다.
 - **구슬은 `InstancedMesh`**: 구슬마다 메시를 만들지 않는다. 구슬 수 상한은 총 100개다.
 - **카메라**: 원본 `Camera` 의 `(x, y, zoom)` 을 계산 결과로 계속 쓰고, 이를 원근 카메라의 위치·거리로 매핑하는 어댑터를 둔다. 추적 로직을 3D 용으로 다시 쓰지 않는다.
 

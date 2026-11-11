@@ -16,6 +16,7 @@
   <meta name="description" content="구슬을 굴려 당첨자를 뽑는 추첨기">
 
   <link rel='stylesheet' href='./assets/style.scss' />
+  <link rel='stylesheet' href='./assets/hud.scss' />
 </head>
 <body>
 <script type="module" src="./src/index.ts"></script>
@@ -100,10 +101,6 @@
       }, 3000);
     });
 
-    window.roulette.addEventListener('message', (e) => {
-      simpleToast(e.detail);
-    });
-
     const toggleBtn = document.querySelector('#btnToggleSettings');
     const collapsible = document.querySelector('.collapsible-rows');
     toggleBtn.addEventListener('click', () => {
@@ -117,22 +114,6 @@
     // 맵을 바꾸면 살아남은 구슬에서 이름을 뽑아 재구성하는데, 골인한 구슬이 사라지므로
     // 원본인 이름 입력창에서 다시 채운다
     window.initMapSelector(getReady);
-
-    function simpleToast(msg) {
-      const toast = document.createElement('div');
-      toast.classList.add('toast');
-      toast.innerHTML = msg;
-
-      if (window.translateElement) {
-        console.log('try to translate');
-        window.translateElement(toast);
-      }
-
-      document.body.appendChild(toast);
-      setTimeout(() => {
-        document.body.removeChild(toast);
-      }, 1200);
-    }
   }
 </script>
 <h1 class="sr-only">roulette-3d - 랜덤 추첨기</h1>

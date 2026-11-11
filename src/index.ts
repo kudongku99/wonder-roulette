@@ -1,9 +1,18 @@
+import '@fontsource/black-han-sans/korean-400.css';
+import '@fontsource/black-han-sans/latin-400.css';
+import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
+import { Hud } from './hud/hud';
 import { translate } from './localization';
 import { initMapSelector } from './mapSelector';
 import { Roulette } from './roulette';
 
 try {
   const roulette = new Roulette();
+  const hud = new Hud(document.body, {
+    setFastForward: (on) => roulette.setFastForward(on),
+    lookAt: (pos) => roulette.lookAt(pos),
+  });
+  roulette.onFrame((frame) => hud.update(frame));
 
   (window as any).roulette = roulette;
 

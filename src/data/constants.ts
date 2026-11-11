@@ -5,13 +5,11 @@ export const canvasWidth = 1600;
 export const canvasHeight = 900;
 export const zoomThreshold = 5;
 export const STUCK_DELAY = 5000;
-export const winnerAreaHeight = 168;
 
 /** 화면 색. 다크 테마 하나뿐이다 */
 export const theme: ColorTheme = {
   background: 'black',
   marbleLightness: 75,
-  marbleWinningBorder: 'white',
   entity: {
     box: { fill: 'cyan', outline: 'cyan' },
     circle: { fill: 'yellow', outline: 'yellow' },
@@ -19,7 +17,4 @@ export const theme: ColorTheme = {
   },
   minimapBackground: '#333333',
   minimapViewport: 'white',
-  winnerBackground: 'rgba(0, 0, 0, 0.5)',
-  winnerOutline: 'black',
-  winnerText: 'white',
 };

@@ -407,19 +407,6 @@ div.copyright a {
 
 }
 
-div.toast {
-  position: fixed;
-  transform: translate(-50%, 0);
-  padding: 8px;
-  border-radius: 4px;
-  background: #ccc;
-  overflow: hidden;
-  bottom: 10px;
-  left: 50%;
-  z-index: 1000;
-  animation: .2s linear fade-in, .2s linear 1s reverse fade-in;
-}
-
 @keyframes fade-in {
   0% {
     opacity: 0;

@@ -1,7 +1,7 @@
 import { CanvasTexture, DoubleSide, Mesh, MeshBasicMaterial, PlaneGeometry, SRGBColorSpace } from 'three';
 import type { StageDef } from '../../data/maps';
 import { ProgressMap } from '../../progressMap';
-import type { WorldDebugDraw } from '../worldRenderer';
+import type { WorldDebugDraw } from '../worldFrame';
 
 const MAX_TEXTURE_SIZE = 4096;
 const PIXELS_PER_UNIT = 16;

@@ -6,7 +6,6 @@ interface ShapeColor {
 export interface ColorTheme {
   background: string;
   marbleLightness: number;
-  marbleWinningBorder: string;
   entity: {
     box: ShapeColor;
     circle: ShapeColor;
@@ -14,7 +13,4 @@ export interface ColorTheme {
   };
   minimapBackground: string;
   minimapViewport: string;
-  winnerText: string;
-  winnerOutline: string;
-  winnerBackground: string;
 }

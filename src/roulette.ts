@@ -1,17 +1,14 @@
 import { Camera } from './camera';
 import { canvasHeight, canvasWidth, initialZoom, zoomThreshold } from './data/constants';
 import { type StageDef, stages } from './data/maps';
-import { FastForwader } from './fastForwader';
 import { GoalBurst } from './goalBurst';
+import type { HudFrame, MarbleLabel } from './hud/hudFrame';
 import type { IPhysics } from './IPhysics';
 import { Marble } from './marble';
-import { Minimap } from './minimap';
 import { Box2dPhysics } from './physics-box2d';
 import { ProgressMap } from './progressMap';
-import { RankRenderer } from './rankRenderer';
-import { RouletteRenderer } from './rouletteRenderer';
-import type { MouseEventHandlerName, MouseEventName } from './types/mouseEvents.type';
-import type { UIObject } from './UIObject';
+import { ThreeWorldRenderer } from './render/three/threeWorldRenderer';
+import type { VectorLike } from './types/VectorLike';
 import { bound } from './utils/bound.decorator';
 import { limitMembers, shuffle } from './utils/utils';
 import { drawZoomZones, zoomZoneIntensity } from './zoomZone';
@@ -22,6 +19,8 @@ import { drawZoomZones, zoomZoneIntensity } from './zoomZone';
  */
 const RANK_EMA_SEC = 0.4;
 const RANK_MARGIN = 0.25;
+/** 빨리 감기를 켰을 때의 배속 */
+const FAST_FORWARD_SPEED = 2;
 
 export class Roulette extends EventTarget {
   private _marbles: Marble[] = [];
@@ -32,12 +31,14 @@ export class Roulette extends EventTarget {
   private _updateInterval = 10;
   private _timeScale = 1;
   private _speed = 1;
+  private _fastForward = false;
 
   private _winners: Marble[] = [];
   private _stage: StageDef | null = null;
 
-  protected _camera: Camera = new Camera();
-  protected _renderer: RouletteRenderer;
+  private _camera: Camera = new Camera();
+  private _renderer: ThreeWorldRenderer;
+  private _frameListeners: ((frame: HudFrame) => void)[] = [];
 
   private _bursts: GoalBurst[] = [];
 
@@ -58,51 +59,32 @@ export class Roulette extends EventTarget {
   // 뒤늦게 발화해 같은 id를 가진 새 라운드의 구슬을 지워버린다
   private _pendingRemovals: number[] = [];
 
-  private _uiObjects: UIObject[] = [];
-
   private physics!: IPhysics;
 
   private _isReady: boolean = false;
-  protected fastForwarder!: FastForwader;
 
   get isReady() {
     return this._isReady;
   }
 
-  protected createRenderer(): RouletteRenderer {
-    return new RouletteRenderer();
-  }
-
-  protected createFastForwader(): FastForwader {
-    return new FastForwader();
-  }
-
+  /** WebGL 을 쓸 수 없으면 예외를 던진다 */
   constructor() {
     super();
-    this._renderer = this.createRenderer();
-    this._renderer.init().then(() => {
-      this._init().then(() => {
-        this._isReady = true;
-        this._update();
-      });
+    this._renderer = new ThreeWorldRenderer();
+    this._renderer.attach(document.body);
+    this._init().then(() => {
+      this._isReady = true;
+      this._update();
     });
+  }
+
+  /** 프레임을 그릴 때마다 HUD 가 읽을 상태를 넘긴다. 받은 객체는 그 프레임 동안만 유효하다 */
+  public onFrame(listener: (frame: HudFrame) => void) {
+    this._frameListeners.push(listener);
   }
 
   public getZoom() {
     return initialZoom * this._camera.zoom;
-  }
-
-  private addUiObject(obj: UIObject) {
-    this._uiObjects.push(obj);
-    if (obj.onWheel) {
-      this._renderer.canvas.addEventListener('wheel', obj.onWheel);
-    }
-    if (obj.onMessage) {
-      obj.onMessage((msg) => {
-        console.log('onMessage', msg);
-        this.dispatchEvent(new CustomEvent('message', { detail: msg }));
-      });
-    }
   }
 
   @bound
@@ -110,7 +92,7 @@ export class Roulette extends EventTarget {
     if (!this._lastTime) this._lastTime = Date.now();
     const currentTime = Date.now();
 
-    this._elapsed += (currentTime - this._lastTime) * this._speed * this.fastForwarder.speed;
+    this._elapsed += (currentTime - this._lastTime) * this._speed * (this._fastForward ? FAST_FORWARD_SPEED : 1);
     if (this._elapsed > 100) {
       this._elapsed %= 100;
     }
@@ -128,7 +110,6 @@ export class Roulette extends EventTarget {
       this._updateMarbles(this._updateInterval, timeScale);
       this._updateEffects(this._updateInterval);
       this._elapsed -= this._updateInterval;
-      this._uiObjects.forEach((obj) => obj.update(this._updateInterval));
     }
 
     if (this._marbles.length > 1) {
@@ -143,7 +124,7 @@ export class Roulette extends EventTarget {
         intensity: this._zoomIntensity ?? Math.max(0, 1 - this._goalDist / zoomThreshold),
         targetIndex: cameraTargetIndex,
         focusOnRival: cameraTargetIndex === this._targetIndex && this._focusOnRival,
-        viewSize: { x: this._renderer.width / initialZoom, y: this._renderer.height / initialZoom },
+        viewSize: { x: this._renderer.viewSize.x / initialZoom, y: this._renderer.viewSize.y / initialZoom },
       });
     }
 
@@ -294,87 +275,54 @@ export class Roulette extends EventTarget {
 
   private _render() {
     if (!this._stage) return;
-    const renderParams = {
+    const entities = this.physics.getEntities();
+    this._renderer.render({
       camera: this._camera,
       stage: this._stage,
-      entities: this.physics.getEntities(),
+      entities,
+      marbles: this._marbles,
+      bursts: this._bursts,
+    });
+    if (this._frameListeners.length === 0) return;
+
+    const labels: MarbleLabel[] = [];
+    for (const marble of this._marbles) {
+      const screen = this._renderer.projectMarble(marble);
+      if (screen) labels.push({ marble, ...screen });
+    }
+    const frame: HudFrame = {
+      stage: this._stage,
+      entities,
       marbles: this._marbles,
       winners: this._winners,
-      bursts: this._bursts,
       winner: this._winner,
-      size: { x: this._renderer.width, y: this._renderer.height },
+      camera: this._camera,
+      viewSize: this._renderer.viewSize,
+      labels,
     };
-    this._renderer.render(renderParams, this._uiObjects);
+    for (const listener of this._frameListeners) listener(frame);
   }
 
   private async _init() {
     this.physics = new Box2dPhysics();
     await this.physics.init();
-
-    this.addUiObject(new RankRenderer());
-    this.attachEvent();
-    const minimap = new Minimap();
-    minimap.onViewportChange((pos) => {
-      if (pos) {
-        this._camera.setPosition(pos, false);
-        this._camera.lock(true);
-      } else {
-        this._camera.lock(false);
-      }
-    });
-    this.addUiObject(minimap);
-    this.fastForwarder = this.createFastForwader();
-    this.addUiObject(this.fastForwarder);
     this._stage = stages[0];
     this._loadMap();
   }
 
-  @bound
-  private mouseHandler(eventName: MouseEventName, e: MouseEvent) {
-    const handlerName = `on${eventName}` as MouseEventHandlerName;
-
-    const sizeFactor = this._renderer.sizeFactor;
-    const pos = { x: e.offsetX * sizeFactor, y: e.offsetY * sizeFactor };
-    this._uiObjects.forEach((obj) => {
-      if (!obj[handlerName]) return;
-      const bounds = obj.getBoundingBox();
-      if (!bounds) {
-        obj[handlerName]({ ...pos, button: e.button });
-      } else if (
-        bounds &&
-        pos.x >= bounds.x &&
-        pos.y >= bounds.y &&
-        pos.x <= bounds.x + bounds.w &&
-        pos.y <= bounds.y + bounds.h
-      ) {
-        obj[handlerName]({ x: pos.x - bounds.x, y: pos.y - bounds.y, button: e.button });
-      } else {
-        obj[handlerName](undefined);
-      }
-    });
+  /** 누르고 있는 동안처럼 잠깐 빠르게 돌린다 */
+  public setFastForward(on: boolean) {
+    this._fastForward = on;
   }
 
-  private attachEvent() {
-    const canvas = this._renderer.canvas;
-    const onPointerRelease = (e: Event) => {
-      this.mouseHandler('MouseUp', e as MouseEvent);
-      window.removeEventListener('pointerup', onPointerRelease);
-      window.removeEventListener('pointercancel', onPointerRelease);
-    };
-
-    canvas.addEventListener('pointerdown', (e: Event) => {
-      this.mouseHandler('MouseDown', e as MouseEvent);
-      window.addEventListener('pointerup', onPointerRelease);
-      window.addEventListener('pointercancel', onPointerRelease);
-    });
-
-    ['MouseMove', 'DblClick'].forEach((ev) => {
-      // @ts-expect-error
-      canvas.addEventListener(ev.toLowerCase().replace('mouse', 'pointer'), this.mouseHandler.bind(this, ev));
-    });
-    canvas.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-    });
+  /** 카메라를 pos 로 옮기고 구슬을 따라가지 않게 한다. null 이면 다시 따라간다 (미니맵에서 맵을 훑어볼 때) */
+  public lookAt(pos: VectorLike | null) {
+    if (pos) {
+      this._camera.setPosition(pos, false);
+      this._camera.lock(true);
+    } else {
+      this._camera.lock(false);
+    }
   }
 
   private _loadMap() {
