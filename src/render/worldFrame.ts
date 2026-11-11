@@ -1,15 +1,23 @@
-import type { Camera } from '../camera';
 import type { StageDef } from '../data/maps';
 import type { GoalBurst } from '../goalBurst';
-import type { Marble } from '../marble';
 import type { MapEntityState } from '../types/MapEntity.type';
+
+/** 그릴 구슬 하나. 게임의 Marble 과 로비 박스의 구슬이 모두 이 모양이다 */
+export type MarbleBody = {
+  position: { x: number; y: number; angle: number };
+  /** 색 (0 ~ 360) */
+  hue: number;
+  /** 크기 배율. 없으면 1. 구슬이 사라지는 효과에 쓴다 */
+  scale?: number;
+};
 
 /** 한 프레임에 월드를 그리는 데 필요한 상태. 좌표는 모두 물리 좌표다 (y 가 아래로 증가) */
 export type WorldFrame = {
-  camera: Camera;
+  /** 물리 좌표의 화면 중심과 줌 */
+  camera: { x: number; y: number; zoom: number };
   stage: StageDef;
   entities: MapEntityState[];
-  marbles: Marble[];
+  marbles: MarbleBody[];
   /** 1등 구슬이 골인한 자리의 축하 효과 */
   bursts: GoalBurst[];
 };

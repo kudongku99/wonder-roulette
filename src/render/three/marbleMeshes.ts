@@ -11,11 +11,10 @@ import {
   Vector3,
 } from 'three';
 import { theme } from '../../data/constants';
-import type { Marble } from '../../marble';
+import type { MarbleBody } from '../worldFrame';
 
 const INITIAL_CAPACITY = 64;
 const Z_AXIS = new Vector3(0, 0, 1);
-const UNIT_SCALE = new Vector3(1, 1, 1);
 
 /**
  * 구슬 메시. 물리 좌표를 그대로 쓰므로 group 을 y 를 뒤집는 부모 아래에 붙여야 한다.
@@ -30,6 +29,7 @@ export class MarbleMeshes {
   private _matrix = new Matrix4();
   private _position = new Vector3();
   private _rotation = new Quaternion();
+  private _scale = new Vector3();
   private _color = new Color();
 
   constructor(radius: number, pattern: Texture | null = null) {
@@ -57,7 +57,7 @@ export class MarbleMeshes {
     return target;
   }
 
-  sync(marbles: Marble[]) {
+  sync(marbles: MarbleBody[]) {
     if (marbles.length > this.capacity) {
       let capacity = this.capacity;
       while (capacity < marbles.length) capacity *= 2;
@@ -70,7 +70,8 @@ export class MarbleMeshes {
       const { x, y, angle } = marble.position;
       this._position.set(x, y, 0);
       this._rotation.setFromAxisAngle(Z_AXIS, angle);
-      this._matrix.compose(this._position, this._rotation, UNIT_SCALE);
+      this._scale.setScalar(marble.scale ?? 1);
+      this._matrix.compose(this._position, this._rotation, this._scale);
       this._instances.setMatrixAt(i, this._matrix);
       this._color.setHSL(marble.hue / 360, 1, theme.marbleLightness / 100, SRGBColorSpace);
       this._instances.setColorAt(i, this._color);

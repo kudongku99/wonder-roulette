@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 구슬을 떨어뜨려 추첨하는 2D 게임 [lazygyu/roulette](https://github.com/lazygyu/roulette) 을 3D 로 리팩터링하는 프로젝트다. 원본 소스는 `../roulette/` 에 클론돼 있으며 **참조 전용이고 수정하지 않는다.** 원본 구조에 대한 상세 설명은 `../CLAUDE.md` 에 있다.
 
-현재 상태: 8단계(UI 모듈과 화면 흐름)까지 끝났다. 6단계부터는 원본과의 기능 동등성을 내려놓고 3D 전용 추첨 게임으로 다시 짜는 중이다. 다음은 9단계(로비에서 이름을 넣으면 구슬이 박스로 떨어지는 장식용 물리 월드)다. 단계별 계획과 바뀐 결정은 `docs/roadmap.md` 에 있다.
+현재 상태: 9단계(로비 구슬 박스)까지 끝났다. 6단계부터는 원본과의 기능 동등성을 내려놓고 3D 전용 추첨 게임으로 다시 짜는 중이다. 다음은 10단계(맵 안팎 색 구분, 환경설정 패널: 기울기·그림자·블룸)다. 단계별 계획과 바뀐 결정은 `docs/roadmap.md` 에 있다.
 
 ## 명령어
 
@@ -43,6 +43,14 @@ pnpm simulate goals 6,16,30   # 골인 시각 전체를 JSON 으로 출력
 - 번역은 `src/i18n.ts` 다. 한국어 표가 키의 기준이고 영어 표는 같은 키를 모두 가져야 타입 검사를 통과한다. 화면 글자는 `t('키')` 로만 넣는다. 언어는 브라우저 언어로 정한다.
 - 결과 화면은 따로 없다. 1등이 확정되면 HUD 의 순위표(`RankBoard`)가 화면 가운데로 커지고(`is-result`), 게임은 뒤에서 전원 골인까지 계속된다. 골인 전인 행은 반투명하다가 결승선을 지나면 불투명해진다.
 
+## 로비 구슬 박스
+
+- 로비 화면에서는 게임 월드 대신 `LobbyBox`(`src/lobbyBox.ts`)를 돌리고 그린다. 이름을 넣으면 구슬이 박스로 떨어지고, 칩을 지우면 그 구슬이 줄어들며 사라진다.
+- 장식일 뿐이고 추첨과 무관하다. 게임과 다른 `Box2dPhysics` 인스턴스를 쓰며, 게임은 시작할 때 구슬을 출발 배치로 새로 만든다. 로비의 구슬 위치나 순서를 게임으로 넘기지 않는다.
+- 박스는 맵 목록에 없는 내부 `StageDef` 라서 장애물·구슬 메시를 게임과 같은 렌더러로 그린다. 렌더러가 받는 구슬은 `MarbleBody`(위치, 색, 크기 배율)이고 게임의 `Marble` 과 로비의 구슬이 모두 이 모양이다.
+- `Roulette.setLobby(목록 | null)` 이 로비 모드를 켜고 끈다. 켜져 있는 동안 게임 물리는 멈춰 있다.
+- 가로로 넓은 화면에서는 이름 입력 카드가 왼쪽, 박스가 오른쪽에 온다. 그 기준 비율은 `lobbyBox.ts` 의 `WIDE_ASPECT` 와 `ui.scss` 의 미디어 쿼리 두 곳에 있으니 같이 고친다.
+
 ## 게임 규칙
 
 - 당첨자는 항상 1등이다. `Roulette` 은 1등이 골인하면 `winner` 이벤트를, 모든 순위가 정해지면 `finish` 이벤트를 낸다. 남은 구슬이 하나면 그 구슬은 골인하지 않아도 순위가 정해진 것으로 본다.
@@ -74,7 +82,7 @@ pnpm simulate goals 6,16,30   # 골인 시각 전체를 JSON 으로 출력
 - 장애물 재질에는 항상 자체 발광이 들어가고 `EffectComposer` 로 블룸을 건다. 밝기 값들은 화면을 보며 맞춘 것이라, 바꿀 때는 화면으로 확인한다.
 - 골인 축하 효과(`ConfettiMeshes`)는 시드와 경과 시간만으로 조각 위치를 계산해 프레임 사이 상태가 없다.
 - 디버그 그림은 `DebugPlane` 이 2D 캔버스에 한 번 그려 장애물 뒤쪽 평면의 텍스처로 쓴다. `WorldDebugDraw` 는 월드 좌표로 그리는 2D 함수 그대로다.
-- WebGL 이 필요한 `ThreeWorldRenderer` 자체는 테스트하지 않는다. GL 없이 돌아가는 `cameraRig`, `StageMeshes`, `MarbleMeshes`, `ConfettiMeshes`, `projectMarble` 을 단위 테스트한다. HUD 와 UI 는 DOM 이 필요 없는 부분(`rankRows`, `nameList`, `ScreenMachine`, `i18n`, `stageRangeX`)만 테스트한다. 테스트 환경에 DOM 이 없으므로 규칙은 DOM 을 만지는 클래스 밖에 둔다. `DebugPlane` 은 DOM 캔버스가 필요해 테스트가 없다. 화면은 개발 서버에서 직접 확인한다.
+- WebGL 이 필요한 `ThreeWorldRenderer` 자체는 테스트하지 않는다. GL 없이 돌아가는 `cameraRig`, `StageMeshes`, `MarbleMeshes`, `ConfettiMeshes`, `projectMarble` 을 단위 테스트한다. HUD 와 UI 는 DOM 이 필요 없는 부분(`rankRows`, `nameList`, `ScreenMachine`, `i18n`, `stageRangeX`)만 테스트한다. `LobbyBox` 는 가짜 `IPhysics` 를 넣어 테스트한다. 테스트 환경에 DOM 이 없으므로 규칙은 DOM 을 만지는 클래스 밖에 둔다. `DebugPlane` 은 DOM 캔버스가 필요해 테스트가 없다. 화면은 개발 서버에서 직접 확인한다.
 
 ## 원본과 달라진 점
 

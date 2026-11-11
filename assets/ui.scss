@@ -104,8 +104,23 @@
 
 // 로비
 
+// 화면이 가로로 넓으면 카드를 왼쪽에 두고 오른쪽에 구슬 박스가 보이게 한다.
+// 비율은 박스를 오른쪽으로 미는 기준(lobbyBox.ts 의 WIDE_ASPECT) 과 맞춘다
 .lobby {
   justify-content: center;
+  background: rgba(3, 4, 12, 0.35);
+}
+
+@media (min-aspect-ratio: 5 / 4) {
+  .lobby {
+    align-items: flex-start;
+    padding-left: max(var(--space-4), 5vw);
+    background: linear-gradient(90deg, rgba(3, 4, 12, 0.8) 0%, rgba(3, 4, 12, 0.45) 45%, rgba(3, 4, 12, 0) 70%);
+  }
+
+  .lobby-card {
+    width: min(520px, 46vw);
+  }
 }
 
 .lobby-card {

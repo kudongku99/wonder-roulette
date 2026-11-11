@@ -4,6 +4,7 @@ import { type StageDef, stages } from './data/maps';
 import { GoalBurst } from './goalBurst';
 import type { HudFrame, MarbleLabel } from './hud/hudFrame';
 import type { IPhysics } from './IPhysics';
+import { LobbyBox, type LobbyEntry } from './lobbyBox';
 import { Marble } from './marble';
 import { Box2dPhysics } from './physics-box2d';
 import { ProgressMap } from './progressMap';
@@ -63,6 +64,9 @@ export class Roulette extends EventTarget {
   private _pendingRemovals: number[] = [];
 
   private physics!: IPhysics;
+  private _lobby!: LobbyBox;
+  /** 로비 화면이면 true. 게임 월드 대신 로비 박스를 돌리고 그린다 */
+  private _inLobby = false;
 
   /** 물리 엔진을 다 불러와 구슬과 맵을 다룰 수 있게 되면 끝난다 */
   readonly ready: Promise<void>;
@@ -86,6 +90,19 @@ export class Roulette extends EventTarget {
   private _update() {
     if (!this._lastTime) this._lastTime = Date.now();
     const currentTime = Date.now();
+
+    if (this._inLobby) {
+      this._elapsed += currentTime - this._lastTime;
+      if (this._elapsed > 100) this._elapsed %= 100;
+      this._lastTime = currentTime;
+      while (this._elapsed >= this._updateInterval) {
+        this._lobby.step(this._updateInterval);
+        this._elapsed -= this._updateInterval;
+      }
+      this._renderer.render(this._lobby.frame(this._renderer.viewSize, initialZoom));
+      window.requestAnimationFrame(this._update);
+      return;
+    }
 
     this._elapsed += (currentTime - this._lastTime) * this._speed * (this._fastForward ? FAST_FORWARD_SPEED : 1);
     if (this._elapsed > 100) {
@@ -312,9 +329,21 @@ export class Roulette extends EventTarget {
 
   private async _init() {
     this.physics = new Box2dPhysics();
-    await this.physics.init();
+    const lobbyPhysics = new Box2dPhysics();
+    await Promise.all([this.physics.init(), lobbyPhysics.init()]);
+    this._lobby = new LobbyBox(lobbyPhysics);
     this._stage = stages[0];
     this._loadMap();
+  }
+
+  /**
+   * 로비 화면의 구슬 박스를 이름 목록에 맞춰 보여준다. null 이면 박스를 비우고 게임 화면으로 돌아간다.
+   * 박스는 게임과 다른 물리 월드라 추첨에 영향을 주지 않는다
+   */
+  public setLobby(entries: LobbyEntry[] | null) {
+    this._inLobby = entries !== null;
+    if (entries) this._lobby.setEntries(entries);
+    else this._lobby.clear();
   }
 
   /** 누르고 있는 동안처럼 잠깐 빠르게 돌린다 */

@@ -21,7 +21,10 @@ export function startApp(root: HTMLElement, roulette: Roulette) {
 
   const lobby = new Lobby(
     loadNames(),
-    (list) => saveNames(toEntryStrings(list)),
+    (list) => {
+      saveNames(toEntryStrings(list));
+      roulette.setLobby(list);
+    },
     () => machine.go('mapSelect')
   );
   const mapSelect = new MapSelect(
@@ -49,7 +52,7 @@ export function startApp(root: HTMLElement, roulette: Roulette) {
       if (machine.go('game')) placeMarbles();
     },
     toLobby: () => {
-      if (machine.go('lobby')) roulette.setMarbles([]);
+      machine.go('lobby');
     },
   });
   root.append(lobby.node, mapSelect.node, controls.node);
@@ -57,7 +60,11 @@ export function startApp(root: HTMLElement, roulette: Roulette) {
   roulette.onFrame((frame) => hud.update(frame));
   roulette.addEventListener('winner', () => machine.go('result'));
 
-  const show = (screen: Screen) => {
+  const show = (screen: Screen, previous?: Screen) => {
+    // 로비에 들어오면 저장된 이름만큼 구슬이 박스로 쏟아지고, 떠나면 박스를 비운다
+    if (screen === 'lobby') roulette.setLobby(lobby.list);
+    else if (previous === 'lobby') roulette.setLobby(null);
+
     root.dataset.screen = screen;
     lobby.node.hidden = screen !== 'lobby';
     mapSelect.node.hidden = screen !== 'mapSelect';
