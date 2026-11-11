@@ -11,8 +11,11 @@ import {
 } from 'three';
 import type { WorldDebugDraw, WorldFrame, WorldRenderer } from '../worldRenderer';
 import { applyView2d, CAMERA_FOV } from './cameraRig';
+import { DebugPlane } from './debugPlane';
+import { EffectMeshes } from './effectMeshes';
 import { MarbleMeshes } from './marbleMeshes';
-import { StageMeshes } from './stageMeshes';
+import { drawMarbleOverlay } from './marbleOverlay';
+import { STAGE_DEPTH, StageMeshes } from './stageMeshes';
 
 const MARBLE_RADIUS = 0.25;
 
@@ -38,7 +41,6 @@ function createMarblePattern(): CanvasTexture {
  * applyView2d 두 곳에서만 한다. 그 아래에 붙는 메시는 물리 좌표를 그대로 쓴다.
  */
 export class ThreeWorldRenderer implements WorldRenderer {
-  /** 아직 지원하지 않는다. 값은 받아 두지만 그리지 않는다 */
   debugDraw: WorldDebugDraw | null = null;
 
   private _renderer: WebGLRenderer;
@@ -47,6 +49,8 @@ export class ThreeWorldRenderer implements WorldRenderer {
   private _world = new Group();
   private _stage = new StageMeshes();
   private _marbles: MarbleMeshes;
+  private _effects = new EffectMeshes();
+  private _debug = new DebugPlane(-STAGE_DEPTH / 2);
   private _background = new Color();
   private _backgroundStyle = '';
 
@@ -59,7 +63,9 @@ export class ThreeWorldRenderer implements WorldRenderer {
     this._world.add(this._stage.group);
 
     this._marbles = new MarbleMeshes(MARBLE_RADIUS, createMarblePattern());
-    this._world.add(this._marbles.mesh);
+    this._world.add(this._marbles.group);
+    this._world.add(this._effects.group);
+    this._world.add(this._debug.mesh);
 
     this._scene.add(new AmbientLight(0xffffff, 0.7));
     const sun = new DirectionalLight(0xffffff, 1.8);
@@ -80,14 +86,13 @@ export class ThreeWorldRenderer implements WorldRenderer {
     }
 
     this._stage.sync(frame.entities, frame.theme);
-    const previous = this._marbles.mesh;
-    if (this._marbles.sync(frame.marbles, frame.theme)) {
-      this._world.remove(previous);
-      this._world.add(this._marbles.mesh);
-    }
+    this._marbles.sync(frame.marbles, frame.theme, frame.skinOf);
+    this._effects.sync(frame.effects, frame.theme);
+    this._debug.sync(this.debugDraw, frame.stage);
 
     applyView2d(this._camera, frame.camera, width, height);
     this._renderer.render(this._scene, this._camera);
     target.drawImage(canvas, 0, 0, width, height);
+    drawMarbleOverlay(target, frame, this._camera);
   }
 }

@@ -9,4 +9,5 @@ const roulette = new Roulette();
 (window as any).options = options;
 
 // index.html 이 초기화할 때 부른다
-(window as any).initMapSelector = (onMapChange: () => void) => initMapSelector({ roulette, onMapChange });
+(window as any).initMapSelector = (onMapChange: () => void, toast: (key: string) => void) =>
+  initMapSelector({ roulette, onMapChange, toast });

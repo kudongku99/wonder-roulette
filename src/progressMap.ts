@@ -79,6 +79,16 @@ export class ProgressMap {
     this.maxDist = this.propagate(stage.goalY);
   }
 
+  /** 지도가 덮는 월드 범위 (x, y 는 왼쪽 위) */
+  get bounds() {
+    return {
+      x: this.minX - CELL / 2,
+      y: this.minY - CELL / 2,
+      w: this.cols * CELL,
+      h: this.rows * CELL,
+    };
+  }
+
   private static cache = new WeakMap<StageDef, ProgressMap>();
 
   /** 같은 맵 객체면 다시 만들지 않는다 */

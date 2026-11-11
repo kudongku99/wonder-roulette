@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 구슬을 떨어뜨려 추첨하는 2D 게임 [lazygyu/roulette](https://github.com/lazygyu/roulette) 을 3D 로 리팩터링하는 프로젝트다. 원본 소스는 `../roulette/` 에 클론돼 있으며 **참조 전용이고 수정하지 않는다.** 원본 구조에 대한 상세 설명은 `../CLAUDE.md` 에 있다.
 
-현재 상태: 3단계(3D 월드 렌더러)까지 끝났다. 기본 화면이 Three.js 로 그려지고, 장애물과 구슬만 3D 로 나온다. 구슬 이름·스킨·당첨 강조, 스킬 이펙트, 디버그 표시는 아직 3D 에 없다(4단계). 단계별 계획과 진행 상황은 `docs/roadmap.md` 가 기준이며, 단계를 끝내면 그 문서의 체크박스를 갱신한다.
+현재 상태: 4단계(기능 동등성)까지 끝났다. 원본에서 되던 플레이 흐름이 모두 3D 화면에서 된다. 조명·그림자·후처리 같은 비주얼 작업(5단계)과 성능 검증(6단계)이 남았다.
 
 ## 명령어
 
@@ -46,13 +46,16 @@ pnpm simulate goals 6,16,30   # 골인 시각 전체를 JSON 으로 출력
 - 좌표 변환은 두 곳뿐이다. `_world` 그룹의 `scale.y = -1` 과 `applyView2d`(`cameraRig.ts`). 그 아래에 붙는 메시(`StageMeshes`, `MarbleMeshes`)는 물리 좌표와 물리 각도를 그대로 쓴다. 메시 코드에서 y 나 각도의 부호를 따로 뒤집지 않는다.
 - `applyView2d` 는 2D 카메라의 `(x, y, zoom)` 을 원근 카메라 거리로 바꾼다. z = 0 평면에서 보이는 세로 범위가 2D 와 같아지게 해서 미니맵의 뷰포트 표시와 카메라 추적 로직이 그대로 맞는다. `CAMERA_TILT` 만큼 위에서 내려다본다.
 - `StageMeshes.sync` 는 엔티티의 `shape` 객체 동일성으로 메시를 대응시킨다. `physics.getEntities()` 가 매 프레임 새 객체를 돌려주지만 `shape` 는 맵 데이터의 객체 그대로이기 때문이다. polyline 은 선분마다 얇은 박스를 만들어 하나로 합친다.
-- 구슬은 `InstancedMesh` 하나이고, 구슬 수가 용량을 넘으면 두 배씩 키워 새로 만든다.
-- WebGL 이 필요한 `ThreeWorldRenderer` 자체는 테스트하지 않는다. GL 없이 돌아가는 `cameraRig`, `StageMeshes`, `MarbleMeshes` 를 단위 테스트한다. 화면은 개발 서버에서 직접 확인한다.
+- 스킨 없는 구슬은 `InstancedMesh` 하나이고, 구슬 수가 용량을 넘으면 두 배씩 키워 새로 만든다. 스킨이 있는 구슬은 수가 적으므로 구슬마다 메시를 따로 두고, 앞에서 본 모습대로 이미지가 입혀지는 UV 를 쓴다.
+- 화면에서 크기가 일정해야 하는 표시(구슬 이름, 당첨 테두리, 쿨타임 호)는 3D 로 만들지 않고 `drawMarbleOverlay` 가 WebGL 결과를 복사한 뒤 그 위에 2D 로 그린다. 구슬 중심과 반지름을 카메라로 투영해 위치를 잡는다.
+- 스킬 이펙트는 구슬 평면 위의 고리 메시(`EffectMeshes`)다.
+- 디버그 그림은 `DebugPlane` 이 2D 캔버스에 한 번 그려 장애물 뒤쪽 평면의 텍스처로 쓴다. `WorldDebugDraw` 는 월드 좌표로 그리는 2D 함수 그대로다.
+- WebGL 이 필요한 `ThreeWorldRenderer` 자체는 테스트하지 않는다. GL 없이 돌아가는 `cameraRig`, `StageMeshes`, `MarbleMeshes`, `EffectMeshes`, `drawMarbleOverlay` 를 단위 테스트한다. `DebugPlane` 은 DOM 캔버스가 필요해 테스트가 없다. 화면은 개발 서버에서 직접 확인한다.
 
 ## 원본과 달라진 점
 
 - 빌드가 Parcel 에서 Vite 로 바뀌었다. 아이콘과 `manifest.json` 은 `public/` 에 있고, `assets/` 는 번들에 포함되는 스타일과 이미지다.
-- 광고(`adService`, `adRenderer`), 키워드 스프라이트(`keywordService`), 맵 공유마당(`communityMaps`, `mapBrowser`), 분석 스크립트, 서비스워커를 제거했다. `mapSelector.ts` 는 기본 맵만 다루도록 다시 썼다. `StageDef.adBoards` 는 맵 형식 호환을 위해 타입에만 남아 있고 그리지 않는다.
+- 광고(`adService`, `adRenderer`), 키워드 스프라이트(`keywordService`), 맵 공유마당(`communityMaps`, `mapBrowser`), 분석 스크립트, 서비스워커를 제거했다. `mapSelector.ts` 는 기본 맵과 파일에서 불러온 맵만 다루도록 다시 썼다. 맵 파일의 형태 검증(`src/stageFile.ts`)은 원본 `communityMaps.ts` 에서 가져왔고, 불러온 맵은 저장하지 않아 새로 고치면 사라진다. `StageDef.adBoards` 는 맵 형식 호환을 위해 타입에만 남아 있고 그리지 않는다.
 - 원본의 `Marble.render`, `Camera.renderScene`, `SkillEffect.render`, `GameObject` 인터페이스, `RouletteRenderer` 의 엔티티·구슬 그리기는 `Canvas2dWorldRenderer` 로 옮겼다. 스킨 이미지 로딩은 `src/marbleSkins.ts` 로 분리했다. 원본에서 비공개 커스텀 빌드용으로 열어둔 `onBeforeEntities` / `onAfterScene` 훅은 없앴다.
 - 결과 팝업의 닫기 버튼 그리기는 `adRenderer` 에서 `src/closeButton.ts` 로 옮겼다.
 - `index.html` 의 인라인 스크립트는 원본 구조 그대로이며 `window.roulette`, `window.options`, `window.initMapSelector` 전역을 쓴다. Biome 과 타입 검사가 이 스크립트는 보지 않는다.
