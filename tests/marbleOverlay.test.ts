@@ -59,3 +59,17 @@ test('스킬을 끄면 쿨타임 표시를 그리지 않는다', () => {
     options.useSkills = true;
   }
 });
+
+test('캔버스가 화면 크기보다 크면 그 비율만큼 키워 그린다', () => {
+  const { winnerRange, ...scene } = createWorldScene('dark');
+  const camera = new PerspectiveCamera(CAMERA_FOV);
+  applyView2d(camera, scene.camera, SCENE_WIDTH, SCENE_HEIGHT);
+  const { ctx, log } = createRecordingContext(SCENE_WIDTH * 2, SCENE_HEIGHT * 2);
+  drawMarbleOverlay(
+    ctx,
+    { ...scene, winning: { first: winnerRange.start, last: winnerRange.end }, skinOf: () => undefined },
+    camera
+  );
+
+  expect(log.find((call) => call[0] === 'scale')).toEqual(['scale', 2, 2]);
+});

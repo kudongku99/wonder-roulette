@@ -68,6 +68,8 @@ export function createWorldScene(themeName: keyof typeof Themes) {
     entities,
     marbles,
     effects: [effect],
+    bursts: [],
+    viewSize: { x: SCENE_WIDTH, y: SCENE_HEIGHT },
     theme: Themes[themeName],
     /** marbles[2] 만 당첨 범위에 들어간다 */
     winnerRange: { start: 2, end: 2 },

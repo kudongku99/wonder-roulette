@@ -11,6 +11,8 @@ import type { WorldDebugDraw, WorldFrame, WorldRenderer } from './worldRenderer'
 type ViewBounds = { left: number; right: number; top: number; bottom: number };
 
 export class Canvas2dWorldRenderer implements WorldRenderer {
+  readonly rendersAtDisplayResolution = false;
+  readonly drawsGoalBursts = false;
   debugDraw: WorldDebugDraw | null = null;
 
   render(ctx: CanvasRenderingContext2D, frame: WorldFrame): void {

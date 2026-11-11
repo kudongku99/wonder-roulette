@@ -17,8 +17,9 @@ export const STAGE_DEPTH = 0.6;
 /** polyline 벽의 두께. 물리에서는 두께 없는 선이다 */
 const WALL_THICKNESS = 0.1;
 const PIN_SEGMENTS = 24;
-/** 색에 섞는 자체 발광 비율. 조명과 상관없이 색이 살아 있게 한다 */
-const EMISSIVE_INTENSITY = 0.15;
+/** 발광 테마에서 색에 섞는 자체 발광 비율. 블룸이 이 밝기를 번지게 한다 */
+const GLOW_EMISSIVE_INTENSITY = 0.35;
+const GLOW_BASE_DIM = 0.55;
 
 type EntityRecord = { shape: EntityShape; mesh: Mesh };
 
@@ -107,7 +108,10 @@ export class StageMeshes {
   }
 
   private create(shape: EntityShape, theme: ColorTheme): EntityRecord {
-    const mesh = new Mesh(createGeometry(shape), this.materialFor(colorOf(shape, theme)));
+    const glows = theme.entity[shape.type].bloomRadius > 0;
+    const mesh = new Mesh(createGeometry(shape), this.materialFor(colorOf(shape, theme), glows));
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
     this.group.add(mesh);
     return { shape, mesh };
   }
@@ -117,18 +121,20 @@ export class StageMeshes {
     record.mesh.geometry.dispose();
   }
 
-  private materialFor(color: string): Material {
-    let material = this._materials.get(color);
+  private materialFor(color: string, glows: boolean): Material {
+    const key = `${color}|${glows}`;
+    let material = this._materials.get(key);
     if (!material) {
       const base = new Color(color);
       material = new MeshStandardMaterial({
-        color: base,
+        // 발광을 더해도 하얗게 날아가지 않고 면마다 밝기 차이가 남도록 바탕색을 낮춘다
+        color: glows ? base.clone().multiplyScalar(GLOW_BASE_DIM) : base,
         emissive: base,
-        emissiveIntensity: EMISSIVE_INTENSITY,
-        roughness: 0.6,
-        metalness: 0.1,
+        emissiveIntensity: glows ? GLOW_EMISSIVE_INTENSITY : 0,
+        roughness: 0.45,
+        metalness: 0.15,
       });
-      this._materials.set(color, material);
+      this._materials.set(key, material);
     }
     return material;
   }

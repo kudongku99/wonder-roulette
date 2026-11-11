@@ -5,29 +5,35 @@ import type { WorldFrame } from '../worldRenderer';
 
 const center = new Vector3();
 const edge = new Vector3();
+const right = new Vector3();
 /** 화면 밖으로 이만큼(화면 절반 대비 비율) 벗어난 구슬까지는 그린다. 이름이 화면 안으로 걸칠 수 있다 */
 const OFFSCREEN_MARGIN = 0.2;
 
 /**
  * 구슬마다 화면 크기가 일정해야 하는 표시(이름, 당첨 테두리, 스킬 쿨타임) 를 3D 화면 위에 2D 로 그린다.
+ * 글자와 선의 굵기는 frame.viewSize 기준이고, ctx 의 캔버스가 그보다 크면 같이 커진다.
  * camera 는 이번 프레임의 위치가 반영된 상태여야 한다.
  */
 export function drawMarbleOverlay(ctx: CanvasRenderingContext2D, frame: WorldFrame, camera: PerspectiveCamera) {
-  const { width, height } = ctx.canvas;
-  const { marbles, winning, theme } = frame;
+  const { marbles, winning, theme, viewSize } = frame;
+  const { x: width, y: height } = viewSize;
+  const scale = ctx.canvas.width / width;
+  right.setFromMatrixColumn(camera.matrixWorld, 0);
 
   ctx.save();
+  ctx.scale(scale, scale);
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
   ctx.font = '12pt sans-serif';
 
   marbles.forEach((marble, i) => {
     const radius = marble.size / 2;
-    center.set(marble.x, -marble.y, 0).project(camera);
+    center.set(marble.x, -marble.y, 0);
+    edge.copy(center).addScaledVector(right, radius).project(camera);
+    center.project(camera);
     if (center.z > 1 || Math.abs(center.x) > 1 + OFFSCREEN_MARGIN || Math.abs(center.y) > 1 + OFFSCREEN_MARGIN) {
       return;
     }
-    edge.set(marble.x + radius, -marble.y, 0).project(camera);
 
     const x = ((center.x + 1) / 2) * width;
     const y = ((1 - center.y) / 2) * height;

@@ -2,6 +2,7 @@ import { Camera } from './camera';
 import { canvasHeight, canvasWidth, initialZoom, Skills, Themes, zoomThreshold } from './data/constants';
 import { type StageDef, stages } from './data/maps';
 import { FastForwader } from './fastForwader';
+import { GoalBurst } from './goalBurst';
 import type { IPhysics } from './IPhysics';
 import { Marble } from './marble';
 import { Minimap } from './minimap';
@@ -54,6 +55,7 @@ export class Roulette extends EventTarget {
   protected _renderer: RouletteRenderer;
 
   private _effects: SkillEffect[] = [];
+  private _bursts: GoalBurst[] = [];
 
   private _winnerRange: WinnerRange = { start: 0, end: 0 };
   private _goalDist: number = Infinity;
@@ -240,6 +242,7 @@ export class Roulette extends EventTarget {
         this._winners.push(marble);
         if (this._isRunning && this._isWinningRank(this._winners.length - 1)) {
           this._particleManager.shot(this._renderer.width, this._renderer.height);
+          this._bursts.push(new GoalBurst(marble.x, marble.y, marble.hue));
         }
         this._pendingRemovals.push(
           window.setTimeout(() => {
@@ -295,6 +298,8 @@ export class Roulette extends EventTarget {
 
     if (early && this._isWinningRank(this._winners.length)) {
       this._particleManager.shot(this._renderer.width, this._renderer.height);
+      const last = this._marbles[0];
+      this._bursts.push(new GoalBurst(last.x, last.y, last.hue));
     }
 
     this._result = ranked.slice(start, end + 1);
@@ -338,6 +343,8 @@ export class Roulette extends EventTarget {
   private _updateEffects(deltaTime: number) {
     this._effects.forEach((effect) => effect.update(deltaTime));
     this._effects = this._effects.filter((effect) => !effect.isDestroy);
+    this._bursts.forEach((burst) => burst.update(deltaTime));
+    this._bursts = this._bursts.filter((burst) => !burst.isDestroy);
   }
 
   private _render() {
@@ -350,6 +357,7 @@ export class Roulette extends EventTarget {
       winners: this._winners,
       particleManager: this._particleManager,
       effects: this._effects,
+      bursts: this._bursts,
       winnerRange: this._winnerRange,
       result: this._result,
       size: { x: this._renderer.width, y: this._renderer.height },

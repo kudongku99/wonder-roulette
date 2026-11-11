@@ -4,6 +4,7 @@ import {
   InstancedMesh,
   Matrix4,
   Mesh,
+  MeshPhysicalMaterial,
   MeshStandardMaterial,
   Quaternion,
   SphereGeometry,
@@ -44,7 +45,7 @@ export class MarbleMeshes {
   readonly group = new Group();
   private _instances: InstancedMesh;
   private _geometry: SphereGeometry;
-  private _material: MeshStandardMaterial;
+  private _material: MeshPhysicalMaterial;
   private _skinGeometry: SphereGeometry;
   private _skinMaterials = new Map<CanvasImageSource, MeshStandardMaterial>();
   private _skinMeshes: Mesh[] = [];
@@ -55,7 +56,13 @@ export class MarbleMeshes {
 
   constructor(radius: number, pattern: Texture | null = null) {
     this._geometry = new SphereGeometry(radius, 32, 20);
-    this._material = new MeshStandardMaterial({ map: pattern, roughness: 0.35, metalness: 0.1 });
+    this._material = new MeshPhysicalMaterial({
+      map: pattern,
+      roughness: 0.25,
+      metalness: 0,
+      clearcoat: 1,
+      clearcoatRoughness: 0.08,
+    });
     this._skinGeometry = createSkinGeometry(radius);
     this._instances = this.createInstances(INITIAL_CAPACITY);
   }
@@ -135,6 +142,8 @@ export class MarbleMeshes {
     mesh.count = 0;
     // 인스턴스 위치가 매 프레임 바뀌어 경계 구가 맞지 않으므로 절두체 컬링을 끈다
     mesh.frustumCulled = false;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
     this.group.add(mesh);
     return mesh;
   }
@@ -143,6 +152,7 @@ export class MarbleMeshes {
     let mesh = this._skinMeshes[index];
     if (!mesh) {
       mesh = new Mesh(this._skinGeometry);
+      mesh.castShadow = true;
       this._skinMeshes[index] = mesh;
       this.group.add(mesh);
     }

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 구슬을 떨어뜨려 추첨하는 2D 게임 [lazygyu/roulette](https://github.com/lazygyu/roulette) 을 3D 로 리팩터링하는 프로젝트다. 원본 소스는 `../roulette/` 에 클론돼 있으며 **참조 전용이고 수정하지 않는다.** 원본 구조에 대한 상세 설명은 `../CLAUDE.md` 에 있다.
 
-현재 상태: 4단계(기능 동등성)까지 끝났다. 원본에서 되던 플레이 흐름이 모두 3D 화면에서 된다. 조명·그림자·후처리 같은 비주얼 작업(5단계)과 성능 검증(6단계)이 남았다.
+현재 상태: 5단계(비주얼)까지 끝났다. 남은 것은 6단계(성능 측정, 저사양 대응, 배포 구성)다.
 
 ## 명령어
 
@@ -32,25 +32,30 @@ pnpm simulate goals 6,16,30   # 골인 시각 전체를 JSON 으로 출력
 
 ## 렌더 구조
 
-- `WorldRenderer`(`src/render/worldRenderer.ts`)가 월드(배경, 장애물, 이펙트, 구슬)를 그리는 인터페이스다. `render(target, frame)` 은 2D 장면 캔버스 컨텍스트를 받아 그 캔버스 전체를 채운다. 3D 구현도 같은 시그니처로, WebGL 로 그린 결과를 `target` 에 옮겨 그리면 된다.
-- `WorldFrame` 이 한 프레임의 입력이다. 물리 좌표 그대로의 카메라 `(x, y, zoom)`, 엔티티 상태, 구슬, 이펙트, 테마, 당첨 강조 범위, 스킨 조회 함수를 담는다.
+- `WorldRenderer`(`src/render/worldRenderer.ts`)가 월드(배경, 장애물, 이펙트, 구슬)를 그리는 인터페이스다. `render(target, frame)` 은 2D 캔버스 컨텍스트를 받아 그 캔버스 전체를 채운다.
+- 합성 경로는 렌더러의 `rendersAtDisplayResolution` 에 따라 둘이다. `false`(2D)면 원본과 같이 절반 해상도의 장면 캔버스에 월드와 HUD 를 함께 그려 표시용 캔버스로 확대한다. `true`(3D)면 월드를 표시용 캔버스에 표시 해상도로 직접 그리고, 장면 캔버스는 HUD 만 담은 투명한 층이 되어 그 위에 확대돼 올라간다. 어느 쪽이든 최종 화면은 표시용 캔버스 하나라 녹화 코드는 같다.
+- `frame.viewSize` 는 장면 캔버스 크기이고 보이는 월드 범위의 기준이다. `target` 캔버스가 이보다 크면 같은 범위를 더 높은 해상도로 그린다는 뜻이다.
+- `WorldFrame` 이 한 프레임의 입력이다. 물리 좌표 그대로의 카메라 `(x, y, zoom)`, 엔티티 상태, 구슬, 스킬 이펙트, 골인 축하 효과(`GoalBurst`), 테마, 당첨 강조 범위, 스킨 조회 함수를 담는다.
 - 구현은 둘이다. 기본은 `ThreeWorldRenderer`(`src/render/three/`), 주소에 `?renderer=2d` 가 있거나 WebGL 렌더러 생성이 실패하면 `Canvas2dWorldRenderer` 다. 고르는 곳은 `RouletteRenderer.createWorldRenderer()` 다.
-- 새 그리기 요소를 넣을 때는 `WorldFrame` 에 필요한 값을 싣고 두 구현에 각각 그린다. 2D 구현은 원본 화면의 기준이라 기능을 빼지 않는다.
+- 새 그리기 요소를 넣을 때는 `WorldFrame` 에 필요한 값을 싣는다. 2D 구현은 원본 화면의 기준이라 원본에 있던 것을 빼지 않고, 원본에 없던 3D 전용 연출은 넣지 않는다. 골인 축하 효과가 그 예로, 3D 는 `frame.bursts` 를 월드 안의 종이 조각으로 그리고(`drawsGoalBursts`), 2D 는 원본의 HUD 화면 파티클(`ParticleManager`)을 그대로 쓴다.
 - `RouletteRenderer` 는 캔버스 생성·리사이즈, 월드 렌더러 호출, 그 위의 HUD(`UIObject[]`, 파티클, 당첨자 표시), 표시용 캔버스 복사를 맡는다.
 - `Marble`, `Camera`, `SkillEffect` 는 그리기 코드가 없는 상태 객체다. 그릴 때 필요한 값은 `marble.coolTimeRatio`, `effect.progress` 같은 읽기 전용 값으로 내놓는다. 이 클래스들에 `render` 메서드를 다시 넣지 않는다.
 - 미니맵은 HUD 라서 구슬과 장애물을 자체적으로 2D 로 그린다(`src/minimap.ts`).
 
 ### 3D 렌더러
 
-- `ThreeWorldRenderer` 는 화면에 붙지 않은 자체 WebGL 캔버스에 그린 뒤 `target.drawImage` 로 장면 캔버스에 옮긴다. 같은 태스크 안에서 바로 복사하므로 `preserveDrawingBuffer` 가 필요 없다.
+- `ThreeWorldRenderer` 는 화면에 붙지 않은 자체 WebGL 캔버스에 그린 뒤 `target.drawImage` 로 표시용 캔버스에 옮긴다. 같은 태스크 안에서 바로 복사하므로 `preserveDrawingBuffer` 가 필요 없다.
 - 좌표 변환은 두 곳뿐이다. `_world` 그룹의 `scale.y = -1` 과 `applyView2d`(`cameraRig.ts`). 그 아래에 붙는 메시(`StageMeshes`, `MarbleMeshes`)는 물리 좌표와 물리 각도를 그대로 쓴다. 메시 코드에서 y 나 각도의 부호를 따로 뒤집지 않는다.
-- `applyView2d` 는 2D 카메라의 `(x, y, zoom)` 을 원근 카메라 거리로 바꾼다. z = 0 평면에서 보이는 세로 범위가 2D 와 같아지게 해서 미니맵의 뷰포트 표시와 카메라 추적 로직이 그대로 맞는다. `CAMERA_TILT` 만큼 위에서 내려다본다.
+- `applyView2d` 는 2D 카메라의 `(x, y, zoom)` 을 원근 카메라 거리로 바꾼다. z = 0 평면에서 보이는 세로 범위가 2D 와 같아지게 해서 미니맵의 뷰포트 표시와 카메라 추적 로직이 그대로 맞는다. `CAMERA_TILT` 만큼 위에서 내려다보고, 결승 연출로 2D 줌이 1 을 넘으면 `finishAngle` 이 줌에 비례해 더 기울이고 좌우로 천천히 돈다. 연출 판정 자체는 2D 카메라의 줌 값을 읽을 뿐 따로 하지 않는다.
 - `StageMeshes.sync` 는 엔티티의 `shape` 객체 동일성으로 메시를 대응시킨다. `physics.getEntities()` 가 매 프레임 새 객체를 돌려주지만 `shape` 는 맵 데이터의 객체 그대로이기 때문이다. polyline 은 선분마다 얇은 박스를 만들어 하나로 합친다.
 - 스킨 없는 구슬은 `InstancedMesh` 하나이고, 구슬 수가 용량을 넘으면 두 배씩 키워 새로 만든다. 스킨이 있는 구슬은 수가 적으므로 구슬마다 메시를 따로 두고, 앞에서 본 모습대로 이미지가 입혀지는 UV 를 쓴다.
 - 화면에서 크기가 일정해야 하는 표시(구슬 이름, 당첨 테두리, 쿨타임 호)는 3D 로 만들지 않고 `drawMarbleOverlay` 가 WebGL 결과를 복사한 뒤 그 위에 2D 로 그린다. 구슬 중심과 반지름을 카메라로 투영해 위치를 잡는다.
 - 스킬 이펙트는 구슬 평면 위의 고리 메시(`EffectMeshes`)다.
+- 조명은 방향광 하나(그림자 포함), 약한 주변광, `RoomEnvironment` 환경광이다. 그림자를 받는 배경판과 그림자 카메라 범위는 매 프레임 `followView` 가 보이는 곳으로 옮긴다.
+- 테마의 `bloomRadius` 가 0 보다 크면(다크) 빛나는 테마로 본다. 장애물 재질에 자체 발광을 넣고 `EffectComposer` 로 블룸을 건다. 아니면(라이트) 후처리 없이 바로 그린다. 밝기 값들은 화면을 보며 맞춘 것이라, 바꿀 때는 두 테마 모두 화면으로 확인한다.
+- 골인 축하 효과(`ConfettiMeshes`)는 시드와 경과 시간만으로 조각 위치를 계산해 프레임 사이 상태가 없다.
 - 디버그 그림은 `DebugPlane` 이 2D 캔버스에 한 번 그려 장애물 뒤쪽 평면의 텍스처로 쓴다. `WorldDebugDraw` 는 월드 좌표로 그리는 2D 함수 그대로다.
-- WebGL 이 필요한 `ThreeWorldRenderer` 자체는 테스트하지 않는다. GL 없이 돌아가는 `cameraRig`, `StageMeshes`, `MarbleMeshes`, `EffectMeshes`, `drawMarbleOverlay` 를 단위 테스트한다. `DebugPlane` 은 DOM 캔버스가 필요해 테스트가 없다. 화면은 개발 서버에서 직접 확인한다.
+- WebGL 이 필요한 `ThreeWorldRenderer` 자체는 테스트하지 않는다. GL 없이 돌아가는 `cameraRig`, `StageMeshes`, `MarbleMeshes`, `EffectMeshes`, `ConfettiMeshes`, `drawMarbleOverlay` 를 단위 테스트한다. `DebugPlane` 은 DOM 캔버스가 필요해 테스트가 없다. 화면은 개발 서버에서 직접 확인한다.
 
 ## 원본과 달라진 점
 

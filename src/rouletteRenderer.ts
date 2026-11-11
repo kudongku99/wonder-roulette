@@ -2,6 +2,7 @@ import type { Camera } from './camera';
 import { closeButtonSize, drawCloseCircle } from './closeButton';
 import { canvasHeight, canvasWidth, winnerAreaHeight } from './data/constants';
 import type { StageDef } from './data/maps';
+import type { GoalBurst } from './goalBurst';
 import type { Marble } from './marble';
 import { MarbleSkins } from './marbleSkins';
 import { MINIMAP_INSET, MINIMAP_WIDTH } from './minimap';
@@ -9,7 +10,7 @@ import type { WinnerRange } from './options';
 import type { ParticleManager } from './particleManager';
 import { Canvas2dWorldRenderer } from './render/canvas2dWorldRenderer';
 import { ThreeWorldRenderer } from './render/three/threeWorldRenderer';
-import type { WorldDebugDraw, WorldRenderer } from './render/worldRenderer';
+import type { WorldDebugDraw, WorldFrame, WorldRenderer } from './render/worldRenderer';
 import type { SkillEffect } from './skillEffect';
 import type { ColorTheme } from './types/ColorTheme';
 import type { MapEntityState } from './types/MapEntity.type';
@@ -25,6 +26,7 @@ export type RenderParameters = {
   winners: Marble[];
   particleManager: ParticleManager;
   effects: SkillEffect[];
+  bursts: GoalBurst[];
   winnerRange: WinnerRange;
   /** 진행 중에는 null, 당첨자가 모두 확정되면 당첨자 배열 */
   result: Marble[] | null;
@@ -104,9 +106,8 @@ export class RouletteRenderer {
     this._sceneCanvas = document.createElement('canvas');
     this._sceneCanvas.width = canvasWidth;
     this._sceneCanvas.height = canvasHeight;
-    this.ctx = this._sceneCanvas.getContext('2d', {
-      alpha: false,
-    }) as CanvasRenderingContext2D;
+    // 월드를 표시용 캔버스에 직접 그리는 렌더러에서는 장면 캔버스가 HUD 만 담은 투명한 층이 된다
+    this.ctx = this._sceneCanvas.getContext('2d') as CanvasRenderingContext2D;
 
     document.body.appendChild(this._canvas);
 
@@ -133,21 +134,29 @@ export class RouletteRenderer {
 
   render(renderParameters: RenderParameters, uiObjects: UIObject[]) {
     const { winnerRange, winners } = renderParameters;
-    this._world.render(this.ctx, {
+    const frame: WorldFrame = {
       camera: renderParameters.camera,
       stage: renderParameters.stage,
       entities: renderParameters.entities,
       marbles: renderParameters.marbles,
       effects: renderParameters.effects,
+      bursts: renderParameters.bursts,
       theme: renderParameters.theme,
+      viewSize: { x: this._sceneCanvas.width, y: this._sceneCanvas.height },
       winning: { first: winnerRange.start - winners.length, last: winnerRange.end - winners.length },
       skinOf: (name) => this._skins.get(name),
-    });
+    };
+    if (this._world.rendersAtDisplayResolution) {
+      this._world.render(this._displayCtx, frame);
+      this.ctx.clearRect(0, 0, this._sceneCanvas.width, this._sceneCanvas.height);
+    } else {
+      this._world.render(this.ctx, frame);
+    }
 
     uiObjects.forEach((obj) =>
       obj.render(this.ctx, renderParameters, this._sceneCanvas.width, this._sceneCanvas.height)
     );
-    renderParameters.particleManager.render(this.ctx);
+    if (!this._world.drawsGoalBursts) renderParameters.particleManager.render(this.ctx);
     this.renderWinnerProgress(renderParameters);
     this.renderResult(renderParameters);
 
