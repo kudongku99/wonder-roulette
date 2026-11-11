@@ -1,12 +1,15 @@
 import type { Camera } from './camera';
 import { closeButtonSize, drawCloseCircle } from './closeButton';
-import { canvasHeight, canvasWidth, initialZoom, Themes, winnerAreaHeight } from './data/constants';
+import { canvasHeight, canvasWidth, winnerAreaHeight } from './data/constants';
 import type { StageDef } from './data/maps';
-import type { GameObject } from './gameObject';
 import type { Marble } from './marble';
+import { MarbleSkins } from './marbleSkins';
 import { MINIMAP_INSET, MINIMAP_WIDTH } from './minimap';
 import type { WinnerRange } from './options';
 import type { ParticleManager } from './particleManager';
+import { Canvas2dWorldRenderer } from './render/canvas2dWorldRenderer';
+import type { WorldDebugDraw, WorldRenderer } from './render/worldRenderer';
+import type { SkillEffect } from './skillEffect';
 import type { ColorTheme } from './types/ColorTheme';
 import type { MapEntityState } from './types/MapEntity.type';
 import type { Rect } from './types/rect.type';
@@ -20,7 +23,7 @@ export type RenderParameters = {
   marbles: Marble[];
   winners: Marble[];
   particleManager: ParticleManager;
-  effects: GameObject[];
+  effects: SkillEffect[];
   winnerRange: WinnerRange;
   /** 진행 중에는 null, 당첨자가 모두 확정되면 당첨자 배열 */
   result: Marble[] | null;
@@ -47,11 +50,20 @@ export class RouletteRenderer {
   private _displayCtx!: CanvasRenderingContext2D;
   public sizeFactor = 1;
 
-  protected _images: { [key: string]: HTMLImageElement } = {};
-  protected _theme: ColorTheme = Themes.dark;
+  private _skins = new MarbleSkins();
+  private _world: WorldRenderer;
   private _resultCloseRect: Rect | null = null;
   private _resultPopupClosed = false;
   private _lastResult: Marble[] | null = null;
+
+  constructor() {
+    this._world = this.createWorldRenderer();
+  }
+
+  protected createWorldRenderer(): WorldRenderer {
+    return new Canvas2dWorldRenderer();
+  }
+
   get width() {
     return this._sceneCanvas.width;
   }
@@ -64,12 +76,13 @@ export class RouletteRenderer {
     return this._canvas;
   }
 
-  set theme(value: ColorTheme) {
-    this._theme = value;
+  /** 장애물 아래에 월드 좌표로 덧그리는 그림 (테스트 플레이의 진행도 지도) */
+  set debugDraw(draw: WorldDebugDraw | null) {
+    this._world.debugDraw = draw;
   }
 
   async init() {
-    await this._load();
+    await this._skins.load();
 
     this._canvas = document.createElement('canvas');
     this._canvas.width = canvasWidth;
@@ -108,69 +121,18 @@ export class RouletteRenderer {
     resizing();
   }
 
-  private async _loadImage(url: string): Promise<HTMLImageElement> {
-    return new Promise((rs) => {
-      const img = new Image();
-      img.addEventListener('load', () => {
-        rs(img);
-      });
-      img.src = url;
-    });
-  }
-
-  private async _load(): Promise<void> {
-    const loadPromises = [
-      { name: '챔루', imgUrl: new URL('../assets/images/chamru.png', import.meta.url) },
-      { name: '쿠빈', imgUrl: new URL('../assets/images/kubin.png', import.meta.url) },
-      { name: '꽉변', imgUrl: new URL('../assets/images/kkwak.png', import.meta.url) },
-      { name: '꽉변호사', imgUrl: new URL('../assets/images/kkwak.png', import.meta.url) },
-      { name: '꽉 변호사', imgUrl: new URL('../assets/images/kkwak.png', import.meta.url) },
-      { name: '주누피', imgUrl: new URL('../assets/images/junyoop.png', import.meta.url) },
-      { name: '왈도쿤', imgUrl: new URL('../assets/images/waldokun.png', import.meta.url) },
-    ].map(({ name, imgUrl }) => {
-      return (async () => {
-        this._images[name] = await this._loadImage(imgUrl.toString());
-      })();
-    });
-
-    loadPromises.push(
-      (async () => {
-        await this._loadImage(new URL('../assets/images/ff.svg', import.meta.url).toString());
-      })()
-    );
-
-    await Promise.all(loadPromises);
-  }
-
-  private getMarbleImage(name: string): CanvasImageSource | undefined {
-    return this._images[name];
-  }
-
-  protected onBeforeEntities(): void {}
-  /** 장애물 아래에 월드 좌표로 덧그리는 그림 (테스트 플레이의 진행도 지도) */
-  public debugDraw: ((ctx: CanvasRenderingContext2D) => void) | null = null;
-  protected onAfterScene(): void {}
-
   render(renderParameters: RenderParameters, uiObjects: UIObject[]) {
-    this._theme = renderParameters.theme;
-    this.ctx.fillStyle = this._theme.background;
-    this.ctx.fillRect(0, 0, this._sceneCanvas.width, this._sceneCanvas.height);
-
-    this.ctx.save();
-    this.ctx.scale(initialZoom, initialZoom);
-    this.ctx.textAlign = 'left';
-    this.ctx.textBaseline = 'top';
-    this.ctx.font = '0.4pt sans-serif';
-    this.ctx.lineWidth = 3 / (renderParameters.camera.zoom + initialZoom);
-    renderParameters.camera.renderScene(this.ctx, () => {
-      this.onBeforeEntities();
-      this.debugDraw?.(this.ctx);
-      this.renderEntities(renderParameters.entities);
-      this.renderEffects(renderParameters);
-      this.renderMarbles(renderParameters);
+    const { winnerRange, winners } = renderParameters;
+    this._world.render(this.ctx, {
+      camera: renderParameters.camera,
+      stage: renderParameters.stage,
+      entities: renderParameters.entities,
+      marbles: renderParameters.marbles,
+      effects: renderParameters.effects,
+      theme: renderParameters.theme,
+      winning: { first: winnerRange.start - winners.length, last: winnerRange.end - winners.length },
+      skinOf: (name) => this._skins.get(name),
     });
-    this.ctx.restore();
-    this.onAfterScene();
 
     uiObjects.forEach((obj) =>
       obj.render(this.ctx, renderParameters, this._sceneCanvas.width, this._sceneCanvas.height)
@@ -180,71 +142,6 @@ export class RouletteRenderer {
     this.renderResult(renderParameters);
 
     this._displayCtx.drawImage(this._sceneCanvas, 0, 0, this._canvas.width, this._canvas.height);
-  }
-
-  private renderEntities(entities: MapEntityState[]) {
-    this.ctx.save();
-    entities.forEach((entity) => {
-      const transform = this.ctx.getTransform();
-      this.ctx.translate(entity.x, entity.y);
-      this.ctx.rotate(entity.angle);
-      this.ctx.fillStyle = entity.shape.color ?? this._theme.entity[entity.shape.type].fill;
-      this.ctx.strokeStyle = entity.shape.color ?? this._theme.entity[entity.shape.type].outline;
-      this.ctx.shadowBlur = this._theme.entity[entity.shape.type].bloomRadius;
-      this.ctx.shadowColor =
-        entity.shape.bloomColor ?? entity.shape.color ?? this._theme.entity[entity.shape.type].bloom;
-      const shape = entity.shape;
-      switch (shape.type) {
-        case 'polyline':
-          if (shape.points.length > 0) {
-            this.ctx.beginPath();
-            this.ctx.moveTo(shape.points[0][0], shape.points[0][1]);
-            for (let i = 1; i < shape.points.length; i++) {
-              this.ctx.lineTo(shape.points[i][0], shape.points[i][1]);
-            }
-            this.ctx.stroke();
-          }
-          break;
-        case 'box': {
-          const w = shape.width * 2;
-          const h = shape.height * 2;
-          this.ctx.rotate(shape.rotation);
-          this.ctx.fillRect(-w / 2, -h / 2, w, h);
-          this.ctx.strokeRect(-w / 2, -h / 2, w, h);
-          break;
-        }
-        case 'circle':
-          this.ctx.beginPath();
-          this.ctx.arc(0, 0, shape.radius, 0, Math.PI * 2, false);
-          this.ctx.stroke();
-          break;
-      }
-
-      this.ctx.setTransform(transform);
-    });
-    this.ctx.restore();
-  }
-
-  private renderEffects({ effects, camera }: RenderParameters) {
-    effects.forEach((effect) => effect.render(this.ctx, camera.zoom * initialZoom, this._theme));
-  }
-
-  private renderMarbles({ marbles, camera, winnerRange, winners, size }: RenderParameters) {
-    const firstIndex = winnerRange.start - winners.length;
-    const lastIndex = winnerRange.end - winners.length;
-
-    const viewPort = { x: camera.x, y: camera.y, w: size.x, h: size.y, zoom: camera.zoom * initialZoom };
-    marbles.forEach((marble, i) => {
-      marble.render(
-        this.ctx,
-        camera.zoom * initialZoom,
-        i >= firstIndex && i <= lastIndex,
-        false,
-        this.getMarbleImage(marble.name),
-        viewPort,
-        this._theme
-      );
-    });
   }
 
   private renderResult(params: RenderParameters) {
@@ -451,7 +348,7 @@ export class RouletteRenderer {
     const marbleSize = 100;
     const marbleCenterX = this._sceneCanvas.width - marbleSize / 2 - 20;
     const marbleCenterY = this._sceneCanvas.height - winnerAreaHeight / 2;
-    const marbleImage = this.getMarbleImage(winner.name);
+    const marbleImage = this._skins.get(winner.name);
 
     if (marbleImage) {
       this.ctx.drawImage(

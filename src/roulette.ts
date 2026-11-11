@@ -2,7 +2,6 @@ import { Camera } from './camera';
 import { canvasHeight, canvasWidth, initialZoom, Skills, Themes, zoomThreshold } from './data/constants';
 import { type StageDef, stages } from './data/maps';
 import { FastForwader } from './fastForwader';
-import type { GameObject } from './gameObject';
 import type { IPhysics } from './IPhysics';
 import { Marble } from './marble';
 import { Minimap } from './minimap';
@@ -54,7 +53,7 @@ export class Roulette extends EventTarget {
   protected _camera: Camera = new Camera();
   protected _renderer: RouletteRenderer;
 
-  private _effects: GameObject[] = [];
+  private _effects: SkillEffect[] = [];
 
   private _winnerRange: WinnerRange = { start: 0, end: 0 };
   private _goalDist: number = Infinity;
