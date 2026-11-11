@@ -1,4 +1,4 @@
-import { el, marbleColor } from './dom';
+import { el, marbleColor } from '../utils/dom';
 import type { HudFrame } from './hudFrame';
 
 type LabelView = { node: HTMLElement; name: string; hue: number; leader: boolean; shown: boolean };

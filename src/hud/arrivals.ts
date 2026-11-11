@@ -1,4 +1,4 @@
-import { el, marbleColor } from './dom';
+import { el, marbleColor } from '../utils/dom';
 import type { HudFrame } from './hudFrame';
 
 /** 한 번에 보여주는 알림 수. 넘으면 오래된 것부터 지운다 */

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 구슬을 떨어뜨려 추첨하는 2D 게임 [lazygyu/roulette](https://github.com/lazygyu/roulette) 을 3D 로 리팩터링하는 프로젝트다. 원본 소스는 `../roulette/` 에 클론돼 있으며 **참조 전용이고 수정하지 않는다.** 원본 구조에 대한 상세 설명은 `../CLAUDE.md` 에 있다.
 
-현재 상태: 7단계(캔버스 하나와 HTML HUD)까지 끝났다. 6단계부터는 원본과의 기능 동등성을 내려놓고 3D 전용 추첨 게임으로 다시 짜는 중이다. 다음은 8단계(UI 를 TypeScript 모듈로 옮기고 로비 → 맵 선택 → 게임 → 결과 화면 흐름을 만든다)다. 단계별 계획과 바뀐 결정은 `docs/roadmap.md` 에 있다. 이름 입력과 맵 선택이 있는 설정 패널(`index.html`)은 8단계에서 없어질 원본 구조다.
+현재 상태: 8단계(UI 모듈과 화면 흐름)까지 끝났다. 6단계부터는 원본과의 기능 동등성을 내려놓고 3D 전용 추첨 게임으로 다시 짜는 중이다. 다음은 9단계(로비에서 이름을 넣으면 구슬이 박스로 떨어지는 장식용 물리 월드)다. 단계별 계획과 바뀐 결정은 `docs/roadmap.md` 에 있다.
 
 ## 명령어
 
@@ -28,6 +28,27 @@ pnpm simulate goals 6,16,30   # 골인 시각 전체를 JSON 으로 출력
 
 `tests/simulate.test.ts` 가 물리 시뮬레이션 회귀 테스트다. `tests/fixtures/simulate-goals.json` 은 **원본 코드**(lazygyu/roulette `e9a9d22`)로 뽑은 골인 시각이며, 이 프로젝트의 물리와 맵이 같은 값을 내는지 비교한다. 테스트가 깨졌다고 이 프로젝트의 출력으로 기준 파일을 다시 만들면 안 된다. 물리나 맵 데이터를 의도적으로 바꾼 경우에만, 사용자 확인을 받고 갱신한다.
 
+## 화면 흐름과 UI
+
+```
+로비 ──▶ 맵 선택 ──▶ 게임 화면 ──(시작)──▶ 진행 ──(1등 확정)──▶ 결과
+                  ◀── 맵 선택으로                    다시 하기 → 게임 화면, 로비로 → 로비
+```
+
+- UI 는 프레임워크 없는 TypeScript 모듈이다(`src/ui/`). `index.html` 에는 모듈 진입 스크립트만 있고 인라인 스크립트와 `window` 전역은 없다. 스타일도 `src/index.ts` 가 가져온다.
+- `ScreenMachine`(`screenMachine.ts`)이 화면 상태와 허용된 전환을 갖는다. 허용되지 않은 전환은 무시하고 `false` 를 돌려준다. 새 화면이나 전환을 넣을 때는 이 표를 먼저 고친다.
+- `startApp`(`app.ts`)이 화면들과 게임을 잇는다. 화면이 바뀔 때 무엇을 보이고 게임에 무엇을 시킬지는 여기에만 있다. 화면 모듈(`Lobby`, `MapSelect`, `GameControls`)은 콜백만 받고 게임이나 다른 화면을 모른다.
+- 이름 목록의 규칙(쉼표·줄바꿈 나누기, `이름*N`, 같은 이름 합치기, 총 100개 상한)은 DOM 없는 `nameList.ts` 에 있다. 저장은 `storage.ts` 가 `roulette3d:` 접두사 키로 한다. 원본의 `mbr_names` 는 읽지 않는다.
+- 맵 선택의 썸네일은 맵 데이터로 런타임에 그린다(`stageThumbnail.ts`). 장애물을 2D 로 그리는 코드(`src/render/stage2d.ts`)는 미니맵과 같이 쓴다.
+- 번역은 `src/i18n.ts` 다. 한국어 표가 키의 기준이고 영어 표는 같은 키를 모두 가져야 타입 검사를 통과한다. 화면 글자는 `t('키')` 로만 넣는다. 언어는 브라우저 언어로 정한다.
+- 결과 화면은 따로 없다. 1등이 확정되면 HUD 의 순위표(`RankBoard`)가 화면 가운데로 커지고(`is-result`), 게임은 뒤에서 전원 골인까지 계속된다. 골인 전인 행은 반투명하다가 결승선을 지나면 불투명해진다.
+
+## 게임 규칙
+
+- 당첨자는 항상 1등이다. `Roulette` 은 1등이 골인하면 `winner` 이벤트를, 모든 순위가 정해지면 `finish` 이벤트를 낸다. 남은 구슬이 하나면 그 구슬은 골인하지 않아도 순위가 정해진 것으로 본다.
+- 줌인과 슬로모션 연출은 1등이 정해질 때까지만 건다. 첫 골인 뒤에는 대상 구슬이 없어 연출 강도가 0 이고, 카메라는 남은 선두를 따라가기만 한다.
+- 구슬은 총 100개(`MAX_MARBLES`)까지다. 로비가 입력 단계에서 막고, `Roulette.setMarbles` 도 넘는 항목을 뺀다.
+
 ## 렌더 구조
 
 화면은 WebGL 캔버스 하나와 그 위에 겹친 HTML HUD 로 이뤄진다.
@@ -35,10 +56,10 @@ pnpm simulate goals 6,16,30   # 골인 시각 전체를 JSON 으로 출력
 - `ThreeWorldRenderer`(`src/render/three/`)가 월드(배경, 장애물, 구슬, 축하 효과)를 그린다. 자기 WebGL 캔버스를 `attach` 로 화면에 직접 붙이고 크기 변화에 맞춰 해상도를 고친다. WebGL 렌더러를 만들지 못하면 생성자가 예외를 던지고, `src/index.ts` 가 게임 대신 안내 문구만 보여준다.
 - `WorldFrame`(`src/render/worldFrame.ts`)이 월드 한 프레임의 입력이다. 물리 좌표 그대로의 카메라 `(x, y, zoom)`, 엔티티 상태, 구슬, 골인 축하 효과(`GoalBurst`)를 담는다. 새 그리기 요소를 넣을 때는 여기에 필요한 값을 싣는다.
 - `renderer.viewSize` 는 보이는 월드 범위의 기준이 되는 화면 크기다(줌 1 일 때 이 크기 / `initialZoom` 만큼 보인다). 캔버스 픽셀 크기와는 별개다. 카메라 추적과 미니맵의 화면 범위 표시가 이 값을 쓴다.
-- HUD 는 `src/hud/` 의 HTML 모듈이다. `Roulette` 은 HUD 를 모른다. 프레임을 그릴 때마다 `onFrame` 으로 읽기 전용 상태 `HudFrame`(순위, 골인한 구슬, 1등, 카메라, 화면에 보이는 구슬의 위치)을 넘기고, `Hud.update` 가 그것을 읽어 그린다. HUD 가 게임에 시키는 일은 `HudActions`(빨리 감기, 카메라 이동) 뿐이며 `src/index.ts` 가 둘을 잇는다.
+- HUD 는 `src/hud/` 의 HTML 모듈이다. `Roulette` 은 HUD 를 모른다. 프레임을 그릴 때마다 `onFrame` 으로 읽기 전용 상태 `HudFrame`(순위, 골인한 구슬, 1등, 카메라, 화면에 보이는 구슬의 위치)을 넘기고, `Hud.update` 가 그것을 읽어 그린다. HUD 가 바깥에 시키는 일은 `HudActions`(빨리 감기, 카메라 이동, 다시 하기, 로비로) 뿐이며 `src/ui/app.ts` 가 잇는다.
 - HUD 모듈은 달라진 것만 DOM 에 쓴다. `RankBoard` 는 구슬마다 행 하나를 계속 쓰고 순서는 CSS `order` 로 정한다. `MarbleLabels` 는 이름표 요소를 재사용하며 프레임마다 `transform` 만 바꾼다. 프레임마다 도는 코드에서 레이아웃을 읽지 않는다(HUD 크기는 `ResizeObserver` 로 받아 둔다).
 - 미니맵은 틀만 HTML 이고 맵·구슬·화면 범위는 작은 2D 캔버스에 그린다(`src/hud/minimap.ts`).
-- 스타일은 `assets/hud.scss` 에 있고 맨 위의 CSS 변수가 디자인 토큰(네온 아케이드: 색, 발광 테두리, 간격, 글꼴)이다. 새 화면도 이 토큰을 쓴다. 글꼴(Black Han Sans, Pretendard)은 npm 패키지로 번들에 들어가며 외부 CDN 을 쓰지 않는다.
+- 스타일은 `assets/style.scss`(바탕과 디자인 토큰), `hud.scss`, `ui.scss` 로 나뉜다. 토큰은 CSS 변수(네온 아케이드: 색, 발광 테두리, 간격, 글꼴)이고 새 화면도 이 토큰을 쓴다. 글꼴(Black Han Sans, Pretendard)은 npm 패키지로 번들에 들어가며 외부 CDN 을 쓰지 않는다.
 - 색 중 3D 와 미니맵이 같이 쓰는 것은 `src/data/constants.ts` 의 `theme` 이다. 테마를 고르는 코드는 없다.
 - `Marble`, `Camera` 는 그리기 코드가 없는 상태 객체다. 이 클래스들에 `render` 메서드를 다시 넣지 않는다.
 
@@ -53,17 +74,16 @@ pnpm simulate goals 6,16,30   # 골인 시각 전체를 JSON 으로 출력
 - 장애물 재질에는 항상 자체 발광이 들어가고 `EffectComposer` 로 블룸을 건다. 밝기 값들은 화면을 보며 맞춘 것이라, 바꿀 때는 화면으로 확인한다.
 - 골인 축하 효과(`ConfettiMeshes`)는 시드와 경과 시간만으로 조각 위치를 계산해 프레임 사이 상태가 없다.
 - 디버그 그림은 `DebugPlane` 이 2D 캔버스에 한 번 그려 장애물 뒤쪽 평면의 텍스처로 쓴다. `WorldDebugDraw` 는 월드 좌표로 그리는 2D 함수 그대로다.
-- WebGL 이 필요한 `ThreeWorldRenderer` 자체는 테스트하지 않는다. GL 없이 돌아가는 `cameraRig`, `StageMeshes`, `MarbleMeshes`, `ConfettiMeshes`, `projectMarble` 을 단위 테스트한다. HUD 는 DOM 이 필요 없는 계산(`rankRows`)만 테스트한다. `DebugPlane` 은 DOM 캔버스가 필요해 테스트가 없다. 화면은 개발 서버에서 직접 확인한다.
+- WebGL 이 필요한 `ThreeWorldRenderer` 자체는 테스트하지 않는다. GL 없이 돌아가는 `cameraRig`, `StageMeshes`, `MarbleMeshes`, `ConfettiMeshes`, `projectMarble` 을 단위 테스트한다. HUD 와 UI 는 DOM 이 필요 없는 부분(`rankRows`, `nameList`, `ScreenMachine`, `i18n`, `stageRangeX`)만 테스트한다. 테스트 환경에 DOM 이 없으므로 규칙은 DOM 을 만지는 클래스 밖에 둔다. `DebugPlane` 은 DOM 캔버스가 필요해 테스트가 없다. 화면은 개발 서버에서 직접 확인한다.
 
 ## 원본과 달라진 점
 
 - 빌드가 Parcel 에서 Vite 로 바뀌었다. 아이콘과 `manifest.json` 은 `public/` 에 있고, `assets/` 는 번들에 포함되는 스타일과 이미지다.
 - 원작자 인프라에 닿는 것을 제거했다: 광고, 키워드 스프라이트, 맵 공유마당, 분석 스크립트, 서비스워커. `StageDef.adBoards` 는 맵 형식 호환을 위해 타입에만 남아 있고 그리지 않는다.
 - 게임 기능을 줄였다(6단계). 스킬(충격파), 녹화, 라이트 테마, 가중치(`이름/3`), 당첨 순위 설정(당첨자는 항상 1등), 구슬 스킨, 맵 파일 불러오기, `?names=` 주소 파라미터, 2D 렌더러가 없다. 이름 문법은 `이름*N` 만 남았고 `/` 는 이름의 일부다.
-- 구슬은 총 100개(`MAX_MARBLES`)까지다. `Roulette.setMarbles` 가 `limitMembers` 로 합계를 넘기는 항목을 통째로 빼고, 뺀 항목을 돌려준다.
-- 게임은 아직 1등이 골인하는 순간 끝난다. 전원 골인까지 진행하도록 바꾸는 것은 8단계다.
+- 원본은 당첨자가 정해지면 게임이 끝나지만, 여기서는 1등이 나와도 전원 골인까지 진행한다.
 - 원본의 2D 캔버스 그리기는 남아 있지 않다. `Marble`, `Camera` 의 그리기 코드, `GameObject` / `UIObject` 인터페이스, 캔버스 순위표·미니맵, 장면·표시 캔버스 합성을 없앴다. 빨리 감기는 캔버스를 누르고 있는 방식에서 HUD 의 켜고 끄는 버튼으로 바뀌었다. 원본에서 비공개 커스텀 빌드용으로 열어둔 `onBeforeEntities` / `onAfterScene` 훅도 없다.
-- `index.html` 의 인라인 스크립트는 원본 구조를 줄인 것이며 `window.roulette`, `window.initMapSelector` 전역을 쓴다. Biome 과 타입 검사가 이 스크립트는 보지 않는다. 8단계에서 TypeScript 모듈로 옮긴다.
+- 원본의 `index.html` 인라인 스크립트와 설정 패널은 없다. UI 는 `src/ui/` 로 새로 썼고 번역 키도 새로 만들었다.
 - `tsconfig.json` 의 `useDefineForClassFields: false` 는 원본(target es2017)의 클래스 필드 동작을 유지하기 위한 것이다.
 
 ## 확정된 방향: 2.5D

@@ -1,4 +1,4 @@
-import { el } from './dom';
+import { el } from '../utils/dom';
 
 /** 누르면 빨리 감기를 켜고 끄는 버튼 */
 export class SpeedButton {

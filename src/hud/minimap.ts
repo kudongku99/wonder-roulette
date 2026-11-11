@@ -1,15 +1,14 @@
 import { initialZoom, theme } from '../data/constants';
 import type { StageDef } from '../data/maps';
+import { drawShapes, stageRangeX } from '../render/stage2d';
 import type { VectorLike } from '../types/VectorLike';
-import { el } from './dom';
+import { el } from '../utils/dom';
 import type { HudFrame } from './hudFrame';
 
 /** 미니맵 최대 배율 (월드 1 단위가 CSS 픽셀 몇 개인지). 맵이 길거나 넓으면 이보다 작아진다 */
 const MINIMAP_SCALE = 4;
-/** 기본으로 보여주는 가로 범위. 장애물이 이 밖에 있으면 그만큼 넓혀 보여준다 */
-const MINIMAP_MIN_X = 0;
-const MINIMAP_UNITS = 26;
-const MINIMAP_WIDTH = MINIMAP_UNITS * MINIMAP_SCALE;
+/** 미니맵의 최대 너비 (CSS 픽셀). 기본 가로 범위(26 단위) 가 최대 배율로 들어가는 크기다 */
+const MINIMAP_WIDTH = 26 * MINIMAP_SCALE;
 /** 미니맵 위아래로 남기는 화면 여백 (CSS 픽셀) */
 const VERTICAL_MARGIN = 32;
 
@@ -24,7 +23,7 @@ export class Minimap {
   private _scale = MINIMAP_SCALE;
   /** 지금 맵의 가로 범위. 맵이 바뀔 때만 다시 계산한다 */
   private _rangeStage: StageDef | null = null;
-  private _range = { minX: MINIMAP_MIN_X, maxX: MINIMAP_MIN_X + MINIMAP_UNITS };
+  private _range = { minX: 0, maxX: 26 };
 
   constructor(onLook: (pos: VectorLike | null) => void) {
     this.node.append(this._canvas);
@@ -37,7 +36,10 @@ export class Minimap {
   /** @param viewportHeight HUD 영역의 높이 (CSS 픽셀). 맵 전체가 이 안에 들어오게 배율을 줄인다 */
   update(frame: HudFrame, viewportHeight: number) {
     const { stage } = frame;
-    this.updateRange(stage);
+    if (stage !== this._rangeStage) {
+      this._rangeStage = stage;
+      this._range = stageRangeX(stage);
+    }
     const units = this._range.maxX - this._range.minX;
     const maxHeight = Math.max(0, viewportHeight - VERTICAL_MARGIN * 2);
     this._scale = Math.min(MINIMAP_SCALE, maxHeight / stage.goalY, MINIMAP_WIDTH / units);
@@ -49,7 +51,7 @@ export class Minimap {
     ctx.fillStyle = theme.minimapBackground;
     ctx.fillRect(this._range.minX, 0, units, stage.goalY);
     ctx.lineWidth = 0.1;
-    this.drawEntities(frame);
+    drawShapes(ctx, frame.entities);
     this.drawMarbles(frame);
     this.drawViewport(frame);
   }
@@ -64,66 +66,6 @@ export class Minimap {
     canvas.height = pixelHeight;
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
-  }
-
-  /** 맵의 가로 범위. 기본 범위(0 ~ 26) 와 장애물이 있는 범위를 합친다 */
-  private updateRange(stage: StageDef) {
-    if (stage === this._rangeStage) return;
-    this._rangeStage = stage;
-    let minX = MINIMAP_MIN_X;
-    let maxX = MINIMAP_MIN_X + MINIMAP_UNITS;
-    for (const entity of stage.entities ?? []) {
-      const { x } = entity.position;
-      const shape = entity.shape;
-      let xs: number[];
-      if (shape.type === 'polyline') {
-        xs = shape.points.map((p) => x + p[0]);
-      } else if (shape.type === 'circle') {
-        xs = [x - shape.radius, x + shape.radius];
-      } else {
-        const reach = Math.hypot(shape.width, shape.height);
-        xs = [x - reach, x + reach];
-      }
-      for (const v of xs) {
-        if (!Number.isFinite(v)) continue;
-        minX = Math.min(minX, v);
-        maxX = Math.max(maxX, v);
-      }
-    }
-    this._range = { minX: Math.floor(minX), maxX: Math.ceil(maxX) };
-  }
-
-  private drawEntities({ entities }: HudFrame) {
-    const ctx = this._ctx;
-    for (const entity of entities) {
-      const shape = entity.shape;
-      ctx.save();
-      ctx.fillStyle = shape.color ?? theme.entity[shape.type].fill;
-      ctx.strokeStyle = shape.color ?? theme.entity[shape.type].outline;
-      ctx.translate(entity.x, entity.y);
-      ctx.rotate(entity.angle);
-      switch (shape.type) {
-        case 'box': {
-          ctx.rotate(shape.rotation);
-          ctx.fillRect(-shape.width, -shape.height, shape.width * 2, shape.height * 2);
-          break;
-        }
-        case 'circle':
-          ctx.beginPath();
-          ctx.arc(0, 0, shape.radius, 0, Math.PI * 2);
-          ctx.stroke();
-          break;
-        case 'polyline':
-          if (shape.points.length > 0) {
-            ctx.beginPath();
-            ctx.moveTo(shape.points[0][0], shape.points[0][1]);
-            for (let i = 1; i < shape.points.length; i++) ctx.lineTo(shape.points[i][0], shape.points[i][1]);
-            ctx.stroke();
-          }
-          break;
-      }
-      ctx.restore();
-    }
   }
 
   private drawMarbles({ marbles }: HudFrame) {

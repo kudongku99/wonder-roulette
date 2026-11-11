@@ -17,6 +17,8 @@ export type HudFrame = {
   winners: Marble[];
   /** 진행 중에는 null, 1등이 확정되면 그 구슬 */
   winner: Marble | null;
+  /** 모든 순위가 정해졌는지. 마지막 구슬은 골인하지 않아도 순위가 정해진다 */
+  finished: boolean;
   /** 물리 좌표의 화면 중심과 줌 */
   camera: { x: number; y: number; zoom: number };
   /** 보이는 월드 범위의 기준이 되는 화면 크기. 줌 1 일 때 이 크기 / initialZoom 만큼의 월드가 보인다 */

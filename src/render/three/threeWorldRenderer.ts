@@ -145,6 +145,7 @@ export class ThreeWorldRenderer {
   /** 캔버스를 parent 에 붙이고, 화면에 보이는 크기가 바뀔 때마다 해상도를 맞춘다 */
   attach(parent: HTMLElement) {
     const canvas = this.canvas;
+    canvas.classList.add('world-canvas');
     parent.appendChild(canvas);
     const resize = () => {
       const { width, height } = canvas.getBoundingClientRect();

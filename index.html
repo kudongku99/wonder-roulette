@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <title>roulette-3d</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-icon-180x180.png">
@@ -11,146 +10,12 @@
   <link rel="icon" type="image/png" sizes="96x96" href="icons/favicon-96x96.png">
   <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png">
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#ffffff">
+  <meta name="theme-color" content="#000000">
 
   <meta name="description" content="구슬을 굴려 당첨자를 뽑는 추첨기">
-
-  <link rel='stylesheet' href='./assets/style.scss' />
-  <link rel='stylesheet' href='./assets/hud.scss' />
 </head>
 <body>
 <script type="module" src="./src/index.ts"></script>
-<script type="text/javascript">
-  function getNames() {
-    const value = document.querySelector('#in_names').value.trim();
-    return value.split(/[,\r\n]/g).map(v => v.trim()).filter(v => !!v);
-  }
-
-  function parseName(nameStr) {
-    const match = /^\s*([^*\s][^*]*?)\s*(?:\*\s*(\d+))?\s*$/.exec(nameStr);
-    if (!match) return null;
-    return { name: match[1], count: match[2] ? parseInt(match[2], 10) : 1 };
-  }
-
-  function getReady() {
-    const names = getNames();
-    const rejected = window.roulette.setMarbles(names);
-    ready = window.roulette.getCount() > 0;
-    localStorage.setItem('mbr_names', names.join(','));
-    document.querySelector('#namesLimit').hidden = rejected.length === 0;
-  }
-
-  let ready = false;
-
-  document.addEventListener('DOMContentLoaded', () => {
-    initialize();
-  });
-
-  function initialize() {
-    if (document.documentElement.classList.contains('unsupported')) return;
-    if (!window.roulette || !window.roulette.isReady) {
-      console.log('does not loaded yet');
-      setTimeout(initialize, 100);
-      return;
-    }
-    console.log('initializing start');
-
-    const savedNames = localStorage.getItem('mbr_names');
-    if (savedNames) {
-      document.querySelector('#in_names').value = savedNames;
-    }
-    document.querySelector('#in_names').addEventListener('input', () => {
-      getReady();
-    });
-
-    document.querySelector('#in_names').addEventListener('blur', () => {
-      const nameSource = getNames();
-      const nameCounts = {};
-      nameSource.forEach(nameSrc => {
-        const name = parseName(nameSrc);
-        if (!name) return;
-        nameCounts[name.name] = (nameCounts[name.name] || 0) + name.count;
-      });
-      const result = Object.keys(nameCounts).map(key =>
-        nameCounts[key] > 1 ? `${key}*${nameCounts[key]}` : key
-      );
-
-      const oldValue = document.querySelector('#in_names').value;
-      const newValue = result.join(',');
-
-      if (oldValue !== newValue) {
-        document.querySelector('#in_names').value = newValue;
-        getReady();
-      }
-    });
-
-    document.querySelector('#btnShuffle').addEventListener('click', () => {
-      getReady();
-    });
-
-    document.querySelector('#btnStart').addEventListener('click', () => {
-      if (!ready) return;
-      document.querySelector('#settings').classList.add('hide');
-      window.roulette.start();
-    });
-
-    window.roulette.addEventListener('goal', () => {
-      ready = false;
-      setTimeout(() => {
-        document.querySelector('#settings').classList.remove('hide');
-      }, 3000);
-    });
-
-    const toggleBtn = document.querySelector('#btnToggleSettings');
-    const collapsible = document.querySelector('.collapsible-rows');
-    toggleBtn.addEventListener('click', () => {
-      collapsible.classList.toggle('collapsed');
-      toggleBtn.querySelector('.toggle-arrow').textContent =
-        collapsible.classList.contains('collapsed') ? '▲' : '▼';
-    });
-
-    document.querySelector('#btnShuffle').click();
-
-    // 맵을 바꾸면 살아남은 구슬에서 이름을 뽑아 재구성하는데, 골인한 구슬이 사라지므로
-    // 원본인 이름 입력창에서 다시 채운다
-    window.initMapSelector(getReady);
-  }
-</script>
-<h1 class="sr-only">roulette-3d - 랜덤 추첨기</h1>
-<div id="settings" class="settings">
-  <div class="right">
-    <button id="btnToggleSettings" class="btn-toggle-settings">
-      <span data-trans>Settings</span>
-      <i class="toggle-arrow">▲</i>
-    </button>
-    <div class="collapsible-rows collapsed">
-      <div class="row">
-        <label for='sltMap'>
-          <i class="icon map"></i>
-          <span data-trans>Map</span>
-        </label>
-        <div class="map-picker">
-          <select id="sltMap"></select>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="left">
-    <h3 data-trans>Enter names below</h3>
-    <textarea id="in_names" placeholder="Input names separated by commas or line feed here" data-trans="placeholder">수박*2,키위*2,귤*2</textarea>
-    <p id="namesLimit" class="names-limit" hidden data-trans>Up to 100 marbles. Entries over the limit are left out.</p>
-    <div class="actions">
-      <button id="btnShuffle">
-        <i class="icon shuffle"></i>
-        <span data-trans>Shuffle</span>
-      </button>
-      <button id="btnStart">
-        <i class="icon play"></i>
-        <span data-trans>Start</span>
-      </button>
-    </div>
-  </div>
-</div>
 <div class="copyright">Based on <a href="https://github.com/lazygyu/roulette" target="_blank" rel="noopener">Marble Roulette by lazygyu</a> (MIT License)
 </div>
 </body>

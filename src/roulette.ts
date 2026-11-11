@@ -51,7 +51,10 @@ export class Roulette extends EventTarget {
   private _rankKeys = new Map<Marble, number>();
   /** 진행도 지도 그림 (setProgressDebug 로 켰을 때 맵마다 한 번 만든다) */
   private _progressImage: { map: ProgressMap; image: HTMLCanvasElement } | null = null;
+  /** 시작해서 모든 순위가 정해질 때까지 true */
   private _isRunning: boolean = false;
+  /** 모든 순위가 정해졌는지 */
+  private _finished: boolean = false;
   /** 진행 중에는 null, 1등이 확정되면 그 구슬 */
   private _winner: Marble | null = null;
 
@@ -61,19 +64,15 @@ export class Roulette extends EventTarget {
 
   private physics!: IPhysics;
 
-  private _isReady: boolean = false;
-
-  get isReady() {
-    return this._isReady;
-  }
+  /** 물리 엔진을 다 불러와 구슬과 맵을 다룰 수 있게 되면 끝난다 */
+  readonly ready: Promise<void>;
 
   /** WebGL 을 쓸 수 없으면 예외를 던진다 */
   constructor() {
     super();
     this._renderer = new ThreeWorldRenderer();
     this._renderer.attach(document.body);
-    this._init().then(() => {
-      this._isReady = true;
+    this.ready = this._init().then(() => {
       this._update();
     });
   }
@@ -81,10 +80,6 @@ export class Roulette extends EventTarget {
   /** 프레임을 그릴 때마다 HUD 가 읽을 상태를 넘긴다. 받은 객체는 그 프레임 동안만 유효하다 */
   public onFrame(listener: (frame: HudFrame) => void) {
     this._frameListeners.push(listener);
-  }
-
-  public getZoom() {
-    return initialZoom * this._camera.zoom;
   }
 
   @bound
@@ -205,7 +200,8 @@ export class Roulette extends EventTarget {
       }
     }
 
-    // 연출(줌인, 슬로모션) 은 1등을 다투는 두 구슬 중 연출이 더 센 쪽을 기준으로 건다
+    // 연출(줌인, 슬로모션) 은 1등을 다투는 두 구슬 중 연출이 더 센 쪽을 기준으로 건다.
+    // 1등이 골인한 뒤에는 대상 구슬이 없어 연출 강도가 0 이 되고, 카메라는 남은 선두를 따라가기만 한다
     const stage = this._stage;
     const zones = stage.zoomZones?.length ? stage.zoomZones : null;
     const intensityOf = (m: Marble) =>
@@ -234,12 +230,22 @@ export class Roulette extends EventTarget {
     return this._marbles[i + 1] ? i + 1 : i - 1;
   }
 
+  /** 1등이 정해지면 'winner', 모든 순위가 정해지면 'finish' 이벤트를 낸다. 1등이 나와도 게임은 계속된다 */
   private _checkFinish() {
-    if (!this._isRunning || this._winners.length === 0) return;
+    if (!this._isRunning) return;
 
-    this._winner = this._winners[0];
-    this._isRunning = false;
-    this.dispatchEvent(new CustomEvent('goal', { detail: { winner: this._winner.name } }));
+    if (!this._winner && this._winners.length > 0) {
+      this._winner = this._winners[0];
+      this.dispatchEvent(new CustomEvent('winner', { detail: { winner: this._winner.name } }));
+    }
+
+    // 남은 구슬이 하나면 그 구슬의 순위는 골인하지 않아도 정해진다
+    const lastOneLeft = this._marbles.length === 1 && this._winners.length > 0;
+    if (this._marbles.length === 0 || lastOneLeft) {
+      this._isRunning = false;
+      this._finished = true;
+      this.dispatchEvent(new CustomEvent('finish'));
+    }
   }
 
   private _calcTimeScale(): number {
@@ -296,6 +302,7 @@ export class Roulette extends EventTarget {
       marbles: this._marbles,
       winners: this._winners,
       winner: this._winner,
+      finished: this._finished,
       camera: this._camera,
       viewSize: this._renderer.viewSize,
       labels,
@@ -357,10 +364,6 @@ export class Roulette extends EventTarget {
     this._speed = value;
   }
 
-  public getSpeed() {
-    return this._speed;
-  }
-
   /**
    * 구슬을 새로 채운다. 총 구슬 수가 상한(MAX_MARBLES) 을 넘게 만드는 항목은 받지 않는다.
    * @returns 받지 않은 항목
@@ -416,36 +419,20 @@ export class Roulette extends EventTarget {
     this._loadMap();
     this._goalDist = Infinity;
     this._focusOnRival = false;
+    this._zoomIntensity = null;
+    this._timeScale = 1;
+    this._isRunning = false;
+    this._finished = false;
+    this._bursts = [];
+    this._rankKeys.clear();
   }
 
-  public getCount() {
-    return this._marbles.length;
-  }
-
-  public getMaps() {
-    return stages.map((stage, index) => {
-      return {
-        index,
-        title: stage.title,
-      };
-    });
-  }
-
-  public getCurrentMap() {
-    if (!this._stage) return null;
-    return {
-      index: stages.indexOf(this._stage),
-      title: this._stage.title,
-    };
-  }
-
+  /** 맵을 바꾼다. 구슬은 비워지므로 setMarbles 로 다시 채운다 */
   public setMap(index: number) {
     if (index < 0 || index > stages.length - 1) {
       throw new Error('Incorrect map number');
     }
-    const names = this._marbles.map((marble) => marble.name);
     this._stage = stages[index];
-    this.setMarbles(names);
-    this._camera.initializePosition();
+    this.reset();
   }
 }

@@ -1,21 +1,24 @@
-import { translate } from '../localization';
+import { t } from '../i18n';
 import type { VectorLike } from '../types/VectorLike';
+import { el } from '../utils/dom';
 import { Arrivals } from './arrivals';
-import { el } from './dom';
 import type { HudFrame } from './hudFrame';
 import { MarbleLabels } from './marbleLabels';
 import { Minimap } from './minimap';
 import { RankBoard } from './rankBoard';
 import { SpeedButton } from './speedButton';
-import { WinnerBanner } from './winnerBanner';
 
 const TOAST_LIFETIME = 1400;
 
-/** HUD 가 게임에 시키는 일 */
+/** HUD 가 바깥에 시키는 일 */
 export type HudActions = {
   setFastForward(on: boolean): void;
   /** 카메라를 그 위치로 옮긴다. null 이면 다시 구슬을 따라간다 */
   lookAt(pos: VectorLike | null): void;
+  /** 결과 화면의 다시 하기 */
+  replay(): void;
+  /** 결과 화면의 로비로 */
+  toLobby(): void;
 };
 
 /**
@@ -27,39 +30,43 @@ export class Hud {
   private _labels = new MarbleLabels();
   private _minimap: Minimap;
   private _rank: RankBoard;
-  private _winner = new WinnerBanner();
   private _arrivals = new Arrivals();
   private _width = 0;
   private _height = 0;
+  private _result = false;
 
   constructor(parent: HTMLElement, actions: HudActions) {
     this._minimap = new Minimap(actions.lookAt);
-    this._rank = new RankBoard(() => this.toast(translate('The result has been copied')));
-    const speed = new SpeedButton(translate('Fast forward'), actions.setFastForward);
-    this.node.append(
-      this._labels.node,
-      this._minimap.node,
-      this._rank.node,
-      this._arrivals.node,
-      speed.node,
-      this._winner.node
-    );
+    this._rank = new RankBoard({
+      onCopy: () => this.toast(t('hud.copied')),
+      onReplay: actions.replay,
+      onLobby: actions.toLobby,
+    });
+    const speed = new SpeedButton(t('hud.fastForward'), actions.setFastForward);
+    this.node.append(this._labels.node, this._minimap.node, this._arrivals.node, speed.node, this._rank.node);
     parent.append(this.node);
 
     new ResizeObserver(([entry]) => {
       this._width = entry.contentRect.width;
       this._height = entry.contentRect.height;
     }).observe(this.node);
-    const rect = this.node.getBoundingClientRect();
-    this._width = rect.width;
-    this._height = rect.height;
+  }
+
+  /** 게임 화면이 아닐 때는 숨긴다. 숨긴 동안에는 갱신하지 않는다 */
+  setVisible(visible: boolean) {
+    this.node.hidden = !visible;
   }
 
   update(frame: HudFrame) {
+    if (this.node.hidden || this._width === 0) return;
+    const result = !!frame.winner;
+    if (result !== this._result) {
+      this._result = result;
+      this.node.classList.toggle('is-result', result);
+    }
     this._labels.update(frame, this._width, this._height);
     this._minimap.update(frame, this._height);
     this._rank.update(frame);
-    this._winner.update(frame);
     this._arrivals.update(frame);
   }
 

@@ -1,0 +1,427 @@
+// 로비, 맵 선택, 게임 화면의 버튼. 게임 캔버스 위에 겹친다
+
+.ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 10px 18px;
+  background: var(--color-panel);
+  border: 1px solid var(--color-cyan);
+  border-radius: var(--radius);
+  box-shadow: var(--glow-cyan);
+  color: var(--color-cyan);
+  font: 400 17px/1 var(--font-display);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  cursor: pointer;
+  pointer-events: auto;
+  transition:
+    background 0.15s,
+    transform 0.1s;
+
+  &:hover:not(:disabled) {
+    background: rgba(41, 243, 255, 0.16);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-text);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    border-color: var(--color-text-dim);
+    box-shadow: none;
+    color: var(--color-text-dim);
+    cursor: default;
+  }
+
+  &.is-primary {
+    border-color: var(--color-magenta);
+    box-shadow: var(--glow-magenta);
+    color: #fff;
+
+    &:hover:not(:disabled) {
+      background: rgba(255, 61, 242, 0.22);
+    }
+
+    &:disabled {
+      border-color: var(--color-text-dim);
+      box-shadow: none;
+      color: var(--color-text-dim);
+    }
+  }
+
+  &.is-quiet {
+    border-color: transparent;
+    box-shadow: none;
+    color: var(--color-text-dim);
+    font: 500 14px/1 var(--font-body);
+
+    &:hover:not(:disabled) {
+      background: rgba(234, 246, 255, 0.08);
+      color: var(--color-text);
+    }
+  }
+
+  &.is-large {
+    padding: 14px 34px;
+    font-size: 22px;
+  }
+}
+
+.ui-panel {
+  background: var(--color-panel);
+  border: 1px solid var(--color-cyan);
+  border-radius: 14px;
+  box-shadow: var(--glow-cyan);
+  backdrop-filter: blur(6px);
+}
+
+.screen {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: auto;
+  padding: var(--space-4);
+  background: rgba(3, 4, 12, 0.72);
+}
+
+.screen-title {
+  margin: 0;
+  color: var(--color-cyan);
+  font: 400 30px/1.2 var(--font-display);
+  letter-spacing: 0.06em;
+  text-shadow: var(--glow-cyan);
+}
+
+// 로비
+
+.lobby {
+  justify-content: center;
+}
+
+.lobby-card {
+  display: flex;
+  flex-direction: column;
+  width: min(560px, 100%);
+  max-height: 100%;
+  padding: 28px 28px 20px;
+}
+
+.logo {
+  margin: 0 0 22px;
+  color: #fff;
+  font: 400 44px/1 var(--font-display);
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-shadow: var(--glow-cyan);
+}
+
+.logo-accent {
+  color: var(--color-magenta);
+  text-shadow: var(--glow-magenta);
+}
+
+.lobby-label {
+  margin-bottom: var(--space-2);
+  color: var(--color-cyan);
+  font: 400 16px/1 var(--font-display);
+  letter-spacing: 0.06em;
+}
+
+.lobby-input {
+  width: 100%;
+  padding: 12px 14px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(41, 243, 255, 0.6);
+  border-radius: var(--radius);
+  color: var(--color-text);
+  font: 500 18px/1.2 var(--font-body);
+
+  &::placeholder {
+    color: var(--color-text-dim);
+  }
+
+  &:focus {
+    border-color: var(--color-cyan);
+    box-shadow: var(--glow-cyan);
+    outline: none;
+  }
+}
+
+.lobby-hint {
+  margin: var(--space-2) 0 var(--space-3);
+  color: var(--color-text-dim);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.lobby-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: var(--space-2);
+  min-height: 96px;
+  max-height: 34vh;
+  margin: 0;
+  padding: var(--space-2);
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: var(--radius);
+  list-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(41, 243, 255, 0.5) transparent;
+
+  &:empty::before {
+    content: attr(data-empty);
+    margin: auto;
+    color: var(--color-text-dim);
+    font-size: 14px;
+  }
+}
+
+.lobby-chip {
+  animation: chip-in 0.2s cubic-bezier(0.2, 1.5, 0.4, 1) both;
+
+  &.is-leaving {
+    animation: chip-out 0.18s ease-in both;
+    pointer-events: none;
+  }
+}
+
+.chip-button {
+  --chip-color: var(--color-cyan);
+
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 240px;
+  padding: 6px 8px 6px 12px;
+  background: color-mix(in srgb, var(--chip-color) 14%, transparent);
+  border: 1px solid var(--chip-color);
+  border-radius: 999px;
+  color: var(--chip-color);
+  font: 600 15px/1.2 var(--font-body);
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background: color-mix(in srgb, var(--chip-color) 28%, transparent);
+    outline: none;
+
+    .chip-remove {
+      opacity: 1;
+    }
+  }
+}
+
+.chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chip-count {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+
+.chip-remove {
+  font-size: 11px;
+  opacity: 0.5;
+}
+
+@keyframes chip-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+
+@keyframes chip-out {
+  to {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+}
+
+.lobby-notice {
+  margin: var(--space-2) 0 0;
+  color: var(--color-gold);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.lobby-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.lobby-count {
+  margin-right: auto;
+  color: var(--color-text-dim);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+// 맵 선택
+
+.map-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 44px;
+  margin-bottom: var(--space-4);
+
+  .ui-button {
+    position: absolute;
+    left: 0;
+  }
+}
+
+.map-cards {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  width: 100%;
+  min-height: 0;
+}
+
+.map-card {
+  display: flex;
+  flex: 0 1 240px;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  max-height: 100%;
+  padding: var(--space-3);
+  background: var(--color-panel);
+  border: 1px solid rgba(41, 243, 255, 0.45);
+  border-radius: 14px;
+  color: var(--color-text);
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition:
+    transform 0.18s,
+    border-color 0.18s,
+    box-shadow 0.18s;
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--color-magenta);
+    box-shadow: var(--glow-magenta);
+    outline: none;
+    transform: translateY(-6px);
+  }
+
+  &.is-selected {
+    border-color: var(--color-cyan);
+    box-shadow: var(--glow-cyan);
+  }
+}
+
+.map-thumbnail {
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  min-height: 0;
+
+  canvas {
+    width: auto;
+    max-width: 100%;
+    height: 100%;
+    max-height: min(440px, 58vh);
+    border-radius: var(--radius);
+  }
+}
+
+.map-title {
+  margin: var(--space-3) 0 var(--space-1);
+  font: 400 19px/1.3 var(--font-display);
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+.map-length {
+  margin: 0;
+  color: var(--color-text-dim);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+// 게임 화면의 시작 전 버튼
+
+.game-controls {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  transform: translateX(-50%);
+}
+
+@media (max-width: 700px) {
+  .logo {
+    font-size: 34px;
+  }
+
+  .lobby-card {
+    padding: 20px 16px 14px;
+  }
+
+  .map-header {
+    flex-direction: column;
+    gap: var(--space-2);
+
+    .ui-button {
+      position: static;
+      align-self: flex-start;
+    }
+  }
+
+  // 카드가 한 화면에 다 들어오지 않으므로 옆으로 넘긴다
+  .map-cards {
+    justify-content: flex-start;
+    overflow-x: auto;
+  }
+
+  .map-card {
+    flex: 0 0 180px;
+  }
+
+  .game-controls {
+    gap: var(--space-2);
+  }
+
+  .ui-button.is-large {
+    padding: 12px 22px;
+    font-size: 19px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lobby-chip,
+  .lobby-chip.is-leaving {
+    animation-duration: 0.01s;
+  }
+
+  .map-card {
+    transition: none;
+  }
+}
