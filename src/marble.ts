@@ -1,6 +1,5 @@
-import { Skills, STUCK_DELAY } from './data/constants';
+import { STUCK_DELAY } from './data/constants';
 import type { IPhysics } from './IPhysics';
-import options from './options';
 import type { VectorLike } from './types/VectorLike';
 import { Vector } from './utils/Vector';
 
@@ -10,14 +9,8 @@ export class Marble {
   size: number = 0.5;
   color: string = 'red';
   hue: number = 0;
-  impact: number = 0;
-  weight: number = 1;
-  skill: Skills = Skills.None;
   isActive: boolean = false;
 
-  private _skillRate = 0.0005;
-  private _coolTime = 5000;
-  private _maxCoolTime = 5000;
   private _stuckTime = 0;
   private lastPosition: VectorLike = { x: 0, y: 0 };
 
@@ -49,19 +42,9 @@ export class Marble {
     return this.position.angle;
   }
 
-  /** 스킬 쿨타임이 남은 비율 (0 ~ 1) */
-  get coolTimeRatio() {
-    return this._coolTime / this._maxCoolTime;
-  }
-
-  constructor(physics: IPhysics, order: number, max: number, name?: string, weight: number = 1) {
+  constructor(physics: IPhysics, order: number, max: number, name?: string) {
     this.name = name || `M${order}`;
-    this.weight = weight;
     this.physics = physics;
-
-    this._maxCoolTime = 1000 + (1 - this.weight) * 4000;
-    this._coolTime = this._maxCoolTime * Math.random();
-    this._skillRate = 0.2 * this.weight;
 
     const maxLine = Math.ceil(max / 10);
     const line = Math.floor(order / 10);
@@ -74,7 +57,7 @@ export class Marble {
   }
 
   /**
-   * @param deltaTime 벽시계 기준 경과(ms). 스킬 쿨타임 등 연출 시간에 쓴다
+   * @param deltaTime 벽시계 기준 경과(ms)
    * @param timeScale 이 틱에서 물리가 실제로 진행된 비율(슬로모션이면 1 미만).
    *   정지 판정은 이동 거리로 하므로 물리 시간에 맞춰 문턱을 줄여야 한다. 안 그러면 슬로모션 중
    *   천천히 구르는 구슬이 멈춘 것으로 오판되어 골인 직전에 랜덤으로 튕겨진다
@@ -95,25 +78,5 @@ export class Marble {
       this._stuckTime = 0;
     }
     this.lastPosition = { x: this.position.x, y: this.position.y };
-
-    this.skill = Skills.None;
-    if (this.impact) {
-      this.impact = Math.max(0, this.impact - deltaTime);
-    }
-    if (!this.isActive) return;
-    if (options.useSkills) {
-      this._updateSkillInformation(deltaTime);
-    }
-  }
-
-  private _updateSkillInformation(deltaTime: number) {
-    if (this._coolTime > 0) {
-      this._coolTime -= deltaTime;
-    }
-
-    if (this._coolTime <= 0) {
-      this.skill = Math.random() < this._skillRate ? Skills.Impact : Skills.None;
-      this._coolTime = this._maxCoolTime;
-    }
   }
 }

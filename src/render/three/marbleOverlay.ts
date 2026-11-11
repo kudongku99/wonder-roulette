@@ -1,6 +1,5 @@
 import { type PerspectiveCamera, Vector3 } from 'three';
-import options from '../../options';
-import { rad } from '../../utils/utils';
+import { theme } from '../../data/constants';
 import type { WorldFrame } from '../worldRenderer';
 
 const center = new Vector3();
@@ -10,12 +9,12 @@ const right = new Vector3();
 const OFFSCREEN_MARGIN = 0.2;
 
 /**
- * 구슬마다 화면 크기가 일정해야 하는 표시(이름, 당첨 테두리, 스킬 쿨타임) 를 3D 화면 위에 2D 로 그린다.
+ * 구슬마다 화면 크기가 일정해야 하는 표시(이름, 1등 후보 테두리) 를 3D 화면 위에 2D 로 그린다.
  * 글자와 선의 굵기는 frame.viewSize 기준이고, ctx 의 캔버스가 그보다 크면 같이 커진다.
  * camera 는 이번 프레임의 위치가 반영된 상태여야 한다.
  */
 export function drawMarbleOverlay(ctx: CanvasRenderingContext2D, frame: WorldFrame, camera: PerspectiveCamera) {
-  const { marbles, winning, theme, viewSize } = frame;
+  const { marbles, winningIndex, viewSize } = frame;
   const { x: width, y: height } = viewSize;
   const scale = ctx.canvas.width / width;
   right.setFromMatrixColumn(camera.matrixWorld, 0);
@@ -45,19 +44,11 @@ export function drawMarbleOverlay(ctx: CanvasRenderingContext2D, frame: WorldFra
     ctx.strokeText(marble.name, x, y + r);
     ctx.fillText(marble.name, x, y + r);
 
-    if (i >= winning.first && i <= winning.last) {
+    if (i === winningIndex) {
       ctx.beginPath();
       ctx.strokeStyle = theme.marbleWinningBorder;
       ctx.lineWidth = 2;
       ctx.arc(x, y, r, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-
-    if (options.useSkills) {
-      ctx.strokeStyle = theme.coolTimeIndicator;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.arc(x, y, r + 2, rad(270), rad(270 + 360 * marble.coolTimeRatio));
       ctx.stroke();
     }
   });

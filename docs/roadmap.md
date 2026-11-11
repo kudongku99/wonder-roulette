@@ -99,19 +99,19 @@
 
 새 UI 를 올리기 전에 걷어낼 것을 먼저 걷어냅니다. 이 단계에서는 원본 구조의 설정 패널과 캔버스 HUD 가 그대로 남아 동작합니다.
 
-- [ ] 스킬: 충격파 판정, `SkillEffect`, `EffectMeshes`, 쿨타임 호, 토글, `IPhysics.impact`, 번역 키
-- [ ] 녹화: `VideoRecorder`, 옵션과 토글, 시작·종료 호출
-- [ ] 라이트 테마: 토글, `Themes.light`, 3D 렌더러의 테마 분기 (발광과 블룸은 항상 켠다)
-- [ ] 가중치: `이름/3` 문법, 중복 합치기의 가중치 키. `이름*N` 은 유지
-- [ ] 당첨 순위 설정: 모드 버튼, 당첨 범위(`WinnerRange`), 당첨자 패널, 여러 명 결과 팝업과 `closeButton`. 당첨자는 1등으로 고정
-- [ ] 구슬 스킨: `marbleSkins`, 스킨 이미지, 스킨용 개별 메시와 UV
-- [ ] 맵 파일 불러오기: 업로드 버튼, `stageFile.ts` 와 그 테스트
-- [ ] `?names=` 주소 파라미터
-- [ ] 2D 렌더러: `Canvas2dWorldRenderer`, `?renderer=2d`, 화면 파티클(`ParticleManager`, `Particle`), `rendersAtDisplayResolution` / `drawsGoalBursts` 플래그
-- [ ] WebGL 을 못 쓰는 환경에서는 안내 문구만 표시
-- [ ] 구슬 총합 100개 상한 (`setMarbles` 에서 넘는 입력을 받지 않는다)
-- [ ] 테스트 정리: `worldRender`, `effectMeshes` 테스트와 2D 호출 기록 기준값, `recordingContext` 삭제. `simulate` 회귀 테스트는 유지
-- [ ] CLAUDE.md, README 갱신: "2D 가 원본 화면의 기준", "추첨 결과가 원본과 같아야 한다"를 "물리 시뮬레이션이 원본과 같다"로 줄인다
+- [x] 스킬: 충격파 판정, `SkillEffect`, `EffectMeshes`, 쿨타임 호, 토글, `IPhysics.impact`, 번역 키
+- [x] 녹화: `VideoRecorder`, 옵션과 토글, 시작·종료 호출
+- [x] 라이트 테마: 토글, `Themes.light`, 3D 렌더러의 테마 분기 (발광과 블룸은 항상 켠다)
+- [x] 가중치: `이름/3` 문법, 중복 합치기의 가중치 키. `이름*N` 은 유지
+- [x] 당첨 순위 설정: 모드 버튼, 당첨 범위(`WinnerRange`), 당첨자 패널, 여러 명 결과 팝업과 `closeButton`. 당첨자는 1등으로 고정
+- [x] 구슬 스킨: `marbleSkins`, 스킨 이미지, 스킨용 개별 메시와 UV
+- [x] 맵 파일 불러오기: 업로드 버튼, `stageFile.ts` 와 그 테스트
+- [x] `?names=` 주소 파라미터
+- [x] 2D 렌더러: `Canvas2dWorldRenderer`, `?renderer=2d`, 화면 파티클(`ParticleManager`, `Particle`), `rendersAtDisplayResolution` / `drawsGoalBursts` 플래그
+- [x] WebGL 을 못 쓰는 환경에서는 안내 문구만 표시
+- [x] 구슬 총합 100개 상한 (`setMarbles` 에서 넘는 입력을 받지 않는다)
+- [x] 테스트 정리: `worldRender`, `effectMeshes`, `stageFile` 테스트와 2D 호출 기록 기준값 삭제. `simulate` 회귀 테스트는 유지 (`recordingContext` 는 `marbleOverlay` 테스트가 쓰고 있어 7단계에서 함께 지운다)
+- [x] CLAUDE.md, README 갱신: "2D 가 원본 화면의 기준", "추첨 결과가 원본과 같아야 한다"를 "물리 시뮬레이션이 원본과 같다"로 줄인다
 
 완료 기준: 3D 화면에서 이름 입력 → 시작 → 1등 확정까지 동작하고, `simulate` 기준값을 고치지 않은 채 테스트·타입 검사·린트가 통과한다.
 
@@ -127,7 +127,7 @@
 - [ ] 미니맵: 틀은 HTML, 맵·구슬·뷰포트는 작은 캔버스. 마우스를 올린 위치로 카메라 이동은 DOM 이벤트로 다시 잇는다
 - [ ] 구슬 이름 라벨: 구슬마다 HTML 요소를 재사용하고 `transform` 만 프레임마다 갱신한다. 투영 계산은 `marbleOverlay` 의 것을 순수 함수로 남겨 단위 테스트한다
 - [ ] 선두 구슬 강조는 라벨 스타일로 (당첨 테두리 대체)
-- [ ] `UIObject`, `RankRenderer`, 캔버스판 `Minimap`·`FastForwader`, `drawMarbleOverlay` 삭제
+- [ ] `UIObject`, `RankRenderer`, 캔버스판 `Minimap`·`FastForwader`, `drawMarbleOverlay` 삭제 (테스트 도우미 `recordingContext` 포함)
 - [ ] 디버그 표시(`DebugPlane`)는 3D 장면 안의 텍스처라 그대로 둔다
 
 완료 기준: 화면에 캔버스가 하나뿐이고, HUD 가 창 크기와 무관하게 선명하며, 구슬 100개에서 라벨 갱신이 프레임을 떨어뜨리지 않는다.

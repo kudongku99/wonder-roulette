@@ -2,10 +2,6 @@
   --copyright-color: white;
 }
 
-:root.light {
-  --copyright-color: black;
-}
-
 * {
   box-sizing: border-box;
 }
@@ -75,29 +71,10 @@ div.copyright a {
     mask-image: url('images/shop.svg');
   }
 
-  &.record {
-    mask-image: url('images/record.svg');
-  }
-
   &.map {
     mask-image: url('images/map.svg');
   }
 
-  &.trophy {
-    mask-image: url('images/trophy.svg');
-  }
-
-  &.bomb {
-    mask-image: url('images/bomb.svg');
-  }
-
-  &.sun {
-    mask-image: url('images/sun.svg');
-  }
-
-  &.moon {
-    mask-image: url('images/moon.svg');
-  }
 }
 
 
@@ -167,14 +144,6 @@ div.copyright a {
     gap: 4px;
   }
 
-  div.theme {
-    flex-grow: 1;
-    display: flex;
-    align-items: center;
-    color: white;
-    justify-content: flex-end;
-  }
-
   div.left {
     flex-grow: 1;
     flex-shrink: 1;
@@ -214,31 +183,6 @@ div.copyright a {
         color: white;
       }
 
-      .toggle-item {
-        width: 50%;
-        display: flex;
-        align-items: center;
-      }
-
-      // div.right div.row 와 같은 자리에 두어야 display:flex 를 이긴다
-      &.row-range {
-        display: none;
-
-        label {
-          display: none;
-        }
-
-        &.active {
-          display: flex;
-          padding-left: 150px;
-        }
-
-        .range-sep {
-          flex: 0 0 24px;
-          background: transparent;
-          color: white;
-        }
-      }
     }
   }
 
@@ -260,46 +204,6 @@ div.copyright a {
     select {
       flex: 1 1 0;
       min-width: 0;
-    }
-  }
-
-  .btn-map-action {
-    flex: 0 0 25px;
-    height: 25px;
-    padding: 0;
-    border: none;
-    border-radius: 5px;
-    background: #999;
-    color: #222;
-    font-size: 13px;
-    line-height: 25px;
-    text-align: center;
-    text-decoration: none;
-    cursor: pointer;
-
-    &[hidden] {
-      display: none;
-    }
-
-    &:hover {
-      background: #bbb;
-    }
-
-    // 받은 맵에 업데이트가 있다
-    &.has-update {
-      position: relative;
-
-      &::after {
-        content: '';
-        position: absolute;
-        top: -3px;
-        right: -3px;
-        width: 9px;
-        height: 9px;
-        border-radius: 50%;
-        background: #ff5a4f;
-        border: 2px solid #666;
-      }
     }
   }
 
@@ -346,60 +250,6 @@ div.copyright a {
     }
   }
 
-  .btn-group {
-    display: flex;
-    justify-content: stretch;
-    // number input의 기본 폭(~169px)이 intrinsic 폭에 들어가 오른쪽 칼럼을 넓히지 않도록
-    // width를 0으로 누르고, 대신 그룹이 행의 남는 폭을 채우게 한다
-    flex: 1 1 0;
-    min-width: 0;
-
-    & > * {
-      box-sizing: border-box;
-      flex: 1 1 0;
-      min-width: 0;
-      overflow: hidden;
-      height: 25px;
-      border-radius: 0;
-      background: #999;
-      border: none;
-      padding: 0;
-      color: #fefefe;
-
-      display: flex;
-      align-items: center;
-      justify-content: center;
-
-      &:first-child {
-        border-radius: 10px 0 0 10px;
-      }
-
-      &:last-child {
-        border-radius: 0 10px 10px 0;
-      }
-
-      &.active:before {
-        content: '';
-        width: 15px;
-        height: 15px;
-        display: inline-block;
-        vertical-align: middle;
-        mask-image: url('images/check.svg');
-        mask-repeat: no-repeat;
-        background: white;
-      }
-
-      &.active {
-        background: #333;
-      }
-    }
-
-    input[type=number] {
-      box-sizing: border-box;
-      text-align: center;
-      width: 0;
-    }
-  }
 }
 
 #notice {
@@ -522,36 +372,6 @@ div.copyright a {
         margin-bottom: .5rem;
         padding-left: 0;
         display: block;
-      }
-
-      &.row-toggles {
-        display: flex;
-        flex-wrap: wrap;
-
-        .toggle-item {
-          width: 50%;
-          display: flex;
-          flex-direction: column;
-          align-items: start;
-        }
-
-        label {
-          order: 0;
-          margin-bottom: .3rem;
-        }
-
-        input[type=checkbox] {
-          order: 1;
-        }
-      }
-
-      &.row-range.active {
-        display: flex;
-        padding-left: 0;
-      }
-
-      &.row-theme {
-        display: none;
       }
 
       .icon {
@@ -927,4 +747,27 @@ dialog.map-browser {
       font-size: 9pt;
     }
   }
+}
+
+.names-limit {
+  margin: 4px 0;
+  color: #ffd866;
+  font-size: 10pt;
+}
+
+:root.unsupported #settings {
+  display: none;
+}
+
+.unsupported-notice {
+  position: fixed;
+  inset: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  color: white;
+  font-size: 14pt;
 }

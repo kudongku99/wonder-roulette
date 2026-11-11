@@ -7,6 +7,11 @@ function getBrowserLocale() {
   return navigator.language.split('-')[0];
 }
 
+function supportedLocale(name: string): TranslatedLanguages {
+  const lower = name.toLocaleLowerCase();
+  return lower in Translations ? (lower as TranslatedLanguages) : defaultLocale;
+}
+
 function translateElement(element: Element) {
   if (!(element instanceof HTMLElement) || !locale) return;
 
@@ -34,9 +39,7 @@ function setLocale(newLocale: string) {
 
   document.documentElement.lang = newLocale;
 
-  const newLocaleLower = newLocale.toLocaleLowerCase();
-
-  locale = newLocaleLower in Translations ? (newLocaleLower as TranslatedLanguages) : defaultLocale;
+  locale = supportedLocale(newLocale);
   translatePage();
 }
 
@@ -49,7 +52,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 /** 요소가 아닌 문자열(confirm 등) 번역. 번역이 없으면 원문 */
 export function translate(key: string): string {
-  const table = Translations[locale ?? defaultLocale] as Record<string, string>;
+  // 페이지가 다 읽히기 전에 불릴 수 있어, 아직 언어를 정하지 않았으면 브라우저 언어로 본다
+  const table = Translations[locale ?? supportedLocale(getBrowserLocale())] as Record<string, string>;
   return table[key] ?? key;
 }
 

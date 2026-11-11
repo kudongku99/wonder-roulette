@@ -1,15 +1,11 @@
 import { Camera } from '../../src/camera';
-import { Themes } from '../../src/data/constants';
 import type { StageDef } from '../../src/data/maps';
 import type { IPhysics } from '../../src/IPhysics';
 import { Marble } from '../../src/marble';
-import { SkillEffect } from '../../src/skillEffect';
 import type { MapEntityState } from '../../src/types/MapEntity.type';
 
 export const SCENE_WIDTH = 800;
 export const SCENE_HEIGHT = 450;
-export const SKIN = { label: 'skin-image' } as unknown as CanvasImageSource;
-export const SKIN_NAME = 'skinned';
 
 const positions: Record<number, { x: number; y: number; angle: number }> = {
   0: { x: 11, y: 4.5, angle: 0 },
@@ -46,19 +42,12 @@ const entities: MapEntityState[] = [
   { x: 15, y: 6, angle: 0, life: -1, shape: { type: 'circle', radius: 0.6, color: 'red', bloomColor: 'orange' } },
 ];
 
-export function createWorldScene(themeName: keyof typeof Themes) {
-  const random = Math.random;
-  Math.random = () => 0.5;
-  const names = ['plain', SKIN_NAME, 'winner', 'offscreen'];
-  const marbles = names.map((name, order) => new Marble(physics, order, names.length, name, 0.5));
-  Math.random = random;
-  marbles[0].impact = 250;
+export function createWorldScene() {
+  const names = ['plain', 'second', 'winner', 'offscreen'];
+  const marbles = names.map((name, order) => new Marble(physics, order, names.length, name));
 
   const camera = new Camera();
   camera.initializePosition({ x: 12.5, y: 5 }, 1.3);
-
-  const effect = new SkillEffect(12, 5);
-  effect.update(200);
 
   const stage: StageDef = { title: 'test', goalY: 100, zoomY: 90 };
 
@@ -67,11 +56,9 @@ export function createWorldScene(themeName: keyof typeof Themes) {
     stage,
     entities,
     marbles,
-    effects: [effect],
     bursts: [],
     viewSize: { x: SCENE_WIDTH, y: SCENE_HEIGHT },
-    theme: Themes[themeName],
-    /** marbles[2] 만 당첨 범위에 들어간다 */
-    winnerRange: { start: 2, end: 2 },
+    /** marbles[2] 만 강조한다 */
+    winningIndex: 2,
   };
 }

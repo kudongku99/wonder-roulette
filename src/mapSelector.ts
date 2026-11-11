@@ -1,100 +1,60 @@
-// 설정창의 맵 선택. 선택한 기본 맵은 localStorage 에 기억해서 다음 방문에도 유지한다.
-// 파일에서 불러온 맵은 이번 방문 동안만 목록에 남는다.
+// 설정창의 맵 선택. 선택한 맵은 localStorage 에 기억해서 다음 방문에도 유지한다.
 
-import { type StageDef, stages } from './data/maps';
+import { stages } from './data/maps';
 import { translate } from './localization';
 import type { Roulette } from './roulette';
-import { parseStageFile } from './stageFile';
 
 export interface MapSelectorOptions {
   roulette: Roulette;
   /** 맵을 바꾼 뒤 이름 입력창에서 구슬을 다시 채운다 */
   onMapChange: () => void;
-  /** 번역 키를 받아 토스트로 띄운다 */
-  toast: (key: string) => void;
 }
 
 const SELECTED_MAP_STORAGE_KEY = 'r3d_selected_map';
-const DEFAULT_MAP_ID = 'builtin:0';
 
-function getSelectedMapId(): string | null {
+function getSelectedMapIndex(): number | null {
   try {
-    return localStorage.getItem(SELECTED_MAP_STORAGE_KEY);
+    // 예전 버전은 'builtin:{index}' 로 저장했다
+    const saved = localStorage.getItem(SELECTED_MAP_STORAGE_KEY)?.replace(/^builtin:/, '');
+    const index = saved ? Number(saved) : Number.NaN;
+    return Number.isInteger(index) && index >= 0 && index < stages.length ? index : null;
   } catch {
     return null;
   }
 }
 
-function setSelectedMapId(id: string) {
+function setSelectedMapIndex(index: number) {
   try {
-    localStorage.setItem(SELECTED_MAP_STORAGE_KEY, id);
+    localStorage.setItem(SELECTED_MAP_STORAGE_KEY, String(index));
   } catch {}
 }
 
-function builtinIndex(id: string): number | null {
-  if (!id.startsWith('builtin:')) return null;
-  const index = Number(id.slice('builtin:'.length));
-  return Number.isInteger(index) && index >= 0 && index < stages.length ? index : null;
-}
-
-export function initMapSelector({ roulette, onMapChange, toast }: MapSelectorOptions) {
+export function initMapSelector({ roulette, onMapChange }: MapSelectorOptions) {
   const select = document.querySelector<HTMLSelectElement>('#sltMap');
   if (!select) return;
-  const loadButton = document.querySelector<HTMLButtonElement>('#btnLoadMap');
-  const fileInput = document.querySelector<HTMLInputElement>('#inMapFile');
 
-  const loaded = new Map<string, StageDef>();
+  select.replaceChildren(
+    ...stages.map((stage, index) => {
+      const el = document.createElement('option');
+      el.value = String(index);
+      el.textContent = translate(stage.title);
+      return el;
+    })
+  );
 
-  // 맵 제목은 사용자가 준 문자열일 수 있어 innerHTML 에 넣지 않는다
-  function option(value: string, text: string) {
-    const el = document.createElement('option');
-    el.value = value;
-    el.textContent = text;
-    return el;
-  }
-
-  select.replaceChildren(...stages.map((stage, index) => option(`builtin:${index}`, translate(stage.title))));
-
-  /** 맵을 바꾼다. 없는 맵이면 false */
-  function apply(id: string): boolean {
-    const index = builtinIndex(id);
-    const stage = loaded.get(id);
-    if (index !== null) {
-      roulette.setMap(index);
-      setSelectedMapId(id);
-    } else if (stage) {
-      roulette.setStage(stage, id);
-    } else {
-      return false;
-    }
-    select!.value = id;
+  function apply(index: number) {
+    roulette.setMap(index);
+    setSelectedMapIndex(index);
+    select!.value = String(index);
     onMapChange();
-    return true;
   }
 
-  select.addEventListener('change', () => {
-    if (!apply(select.value)) apply(DEFAULT_MAP_ID);
-  });
+  select.addEventListener('change', () => apply(Number(select.value)));
 
-  loadButton?.addEventListener('click', () => fileInput?.click());
-  fileInput?.addEventListener('change', async () => {
-    const file = fileInput.files?.[0];
-    fileInput.value = '';
-    if (!file) return;
-    const stage = parseStageFile(await file.text());
-    if (!stage) {
-      toast('Failed to install the map');
-      return;
-    }
-    const id = `file:${loaded.size}`;
-    loaded.set(id, stage);
-    select.append(option(id, stage.title));
-    apply(id);
-    toast('Map installed');
-  });
-
-  const saved = getSelectedMapId();
-  if (!(saved && saved !== DEFAULT_MAP_ID && apply(saved))) {
-    select.value = roulette.getCurrentMap()?.id ?? DEFAULT_MAP_ID;
+  const saved = getSelectedMapIndex();
+  if (saved) {
+    apply(saved);
+  } else {
+    select.value = String(roulette.getCurrentMap()?.index ?? 0);
   }
 }

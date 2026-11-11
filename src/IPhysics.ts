@@ -20,8 +20,6 @@ export interface IPhysics {
 
   getEntities(): MapEntityState[];
 
-  impact(id: number): void;
-
   start(): void;
 
   step(deltaSeconds: number): void;

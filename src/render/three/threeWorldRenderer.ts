@@ -21,13 +21,11 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { initialZoom } from '../../data/constants';
-import type { ColorTheme } from '../../types/ColorTheme';
+import { initialZoom, theme } from '../../data/constants';
 import type { WorldDebugDraw, WorldFrame, WorldRenderer } from '../worldRenderer';
 import { applyView2d, CAMERA_FOV, finishAngle } from './cameraRig';
 import { ConfettiMeshes } from './confettiMeshes';
 import { DebugPlane } from './debugPlane';
-import { EffectMeshes } from './effectMeshes';
 import { MarbleMeshes } from './marbleMeshes';
 import { drawMarbleOverlay } from './marbleOverlay';
 import { STAGE_DEPTH, StageMeshes } from './stageMeshes';
@@ -35,8 +33,8 @@ import { STAGE_DEPTH, StageMeshes } from './stageMeshes';
 const MARBLE_RADIUS = 0.25;
 /** 배경판 한 변의 길이. 어떤 줌에서도 화면을 다 덮도록 넉넉히 둔다 */
 const BACKBOARD_SIZE = 600;
-/** 어두운 배경은 그림자가 보이도록 이 색 쪽으로 밝힌다 */
-const DARK_BACKBOARD_TINT = new Color('#2b3050');
+/** 배경판은 그림자가 보이도록 배경색에서 이 색 쪽으로 밝힌다 */
+const BACKBOARD_TINT = new Color('#2b3050');
 const SHADOW_MAP_SIZE = 2048;
 /** 빛이 오는 방향 (Three.js 좌표). 왼쪽 위 앞에서 비춘다 */
 const SUN_DIRECTION = { x: -0.45, y: 0.75, z: 1 };
@@ -58,20 +56,12 @@ function createMarblePattern(): CanvasTexture {
   return texture;
 }
 
-/** 다크 테마처럼 장애물이 빛나는 테마인지 */
-function glows(theme: ColorTheme): boolean {
-  const { box, circle, polyline } = theme.entity;
-  return box.bloomRadius > 0 || circle.bloomRadius > 0 || polyline.bloomRadius > 0;
-}
-
 /**
  * Three.js 로 월드를 그린 뒤 결과를 2D 캔버스에 옮겨 그린다.
  * 물리 좌표(y 가 아래로 증가) 에서 Three.js 좌표(y 가 위) 로의 변환은 _world 그룹의 y 반전과
  * applyView2d 두 곳에서만 한다. 그 아래에 붙는 메시는 물리 좌표를 그대로 쓴다.
  */
 export class ThreeWorldRenderer implements WorldRenderer {
-  readonly rendersAtDisplayResolution = true;
-  readonly drawsGoalBursts = true;
   debugDraw: WorldDebugDraw | null = null;
 
   private _renderer: WebGLRenderer;
@@ -80,15 +70,11 @@ export class ThreeWorldRenderer implements WorldRenderer {
   private _world = new Group();
   private _stage = new StageMeshes();
   private _marbles: MarbleMeshes;
-  private _effects = new EffectMeshes();
   private _confetti = new ConfettiMeshes();
   private _debug = new DebugPlane(-STAGE_DEPTH / 2);
   private _backboard: Mesh<PlaneGeometry, MeshStandardMaterial>;
-  private _sun = new DirectionalLight(0xffffff, 2.4);
-  private _ambient = new AmbientLight(0xffffff, 0.35);
-  private _background = new Color();
-  private _theme: ColorTheme | null = null;
-  private _glows = false;
+  private _sun = new DirectionalLight(0xffffff, 1.3);
+  private _ambient = new AmbientLight(0xffffff, 0.15);
   private _composer: EffectComposer | null = null;
   private _bloom: UnrealBloomPass | null = null;
 
@@ -100,6 +86,10 @@ export class ThreeWorldRenderer implements WorldRenderer {
     const pmrem = new PMREMGenerator(this._renderer);
     this._scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
     pmrem.dispose();
+    // 장애물의 발광이 주인공이라 주변 빛을 줄인다
+    this._scene.environmentIntensity = 0.25;
+    const background = new Color(theme.background);
+    this._scene.background = background;
 
     this._world.scale.y = -1;
     this._scene.add(this._world);
@@ -108,6 +98,7 @@ export class ThreeWorldRenderer implements WorldRenderer {
       new PlaneGeometry(BACKBOARD_SIZE, BACKBOARD_SIZE),
       new MeshStandardMaterial({ roughness: 0.9, metalness: 0 })
     );
+    this._backboard.material.color.copy(background).lerp(BACKBOARD_TINT, 0.22);
     this._backboard.position.z = -STAGE_DEPTH / 2 - 0.02;
     this._backboard.receiveShadow = true;
     this._world.add(this._backboard);
@@ -116,7 +107,6 @@ export class ThreeWorldRenderer implements WorldRenderer {
     this._world.add(this._stage.group);
     this._marbles = new MarbleMeshes(MARBLE_RADIUS, createMarblePattern());
     this._world.add(this._marbles.group);
-    this._world.add(this._effects.group);
     this._world.add(this._confetti.mesh);
 
     this._sun.castShadow = true;
@@ -138,10 +128,8 @@ export class ThreeWorldRenderer implements WorldRenderer {
       this._composer?.setSize(width, height);
     }
 
-    this.applyTheme(frame.theme);
-    this._stage.sync(frame.entities, frame.theme);
-    this._marbles.sync(frame.marbles, frame.theme, frame.skinOf);
-    this._effects.sync(frame.effects, frame.theme);
+    this._stage.sync(frame.entities);
+    this._marbles.sync(frame.marbles);
     this._confetti.sync(frame.bursts);
     this._debug.sync(this.debugDraw, frame.stage);
 
@@ -154,27 +142,9 @@ export class ThreeWorldRenderer implements WorldRenderer {
       viewSize.y / (initialZoom * camera.zoom)
     );
 
-    if (this._glows) {
-      this.composer(width, height).render();
-    } else {
-      this._renderer.render(this._scene, this._camera);
-    }
+    this.composer(width, height).render();
     target.drawImage(canvas, 0, 0, width, height);
     drawMarbleOverlay(target, frame, this._camera);
-  }
-
-  private applyTheme(theme: ColorTheme) {
-    if (theme === this._theme) return;
-    this._theme = theme;
-    this._glows = glows(theme);
-    this._background.set(theme.background);
-    this._scene.background = this._background;
-    const board = this._backboard.material.color.copy(this._background);
-    if (this._glows) board.lerp(DARK_BACKBOARD_TINT, 0.22);
-    // 빛나는 테마는 장애물의 발광이 주인공이라 주변 빛을 줄인다
-    this._scene.environmentIntensity = this._glows ? 0.25 : 0.4;
-    this._sun.intensity = this._glows ? 1.3 : 1.7;
-    this._ambient.intensity = this._glows ? 0.15 : 0.2;
   }
 
   /** 배경판과 그림자 범위가 지금 보이는 곳을 따라가게 한다. 인자는 물리 좌표의 화면 중심과 보이는 크기 */

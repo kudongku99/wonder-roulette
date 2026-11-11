@@ -1,7 +1,6 @@
-import { initialZoom } from './data/constants';
+import { initialZoom, theme } from './data/constants';
 import type { StageDef } from './data/maps';
 import type { RenderParameters } from './rouletteRenderer';
-import type { ColorTheme } from './types/ColorTheme';
 import type { MapEntityState } from './types/MapEntity.type';
 import type { Rect } from './types/rect.type';
 import type { VectorLike } from './types/VectorLike';
@@ -116,14 +115,14 @@ export class Minimap implements UIObject {
 
     this.ctx = ctx;
     ctx.save();
-    ctx.fillStyle = params.theme.minimapBackground;
+    ctx.fillStyle = theme.minimapBackground;
     ctx.translate(MINIMAP_INSET, MINIMAP_INSET);
     ctx.scale(this.scale, this.scale);
     ctx.translate(-this.range.minX, 0);
     ctx.fillRect(this.range.minX, 0, units, stage.goalY);
 
     this.ctx.lineWidth = 3 / (params.camera.zoom + initialZoom);
-    this.drawEntities(params.entities, params.theme);
+    this.drawEntities(params.entities);
     this.drawMarbles(params);
     this.drawViewport(params);
 
@@ -141,13 +140,13 @@ export class Minimap implements UIObject {
     const zoom = camera.zoom * initialZoom;
     const w = size.x / zoom;
     const h = size.y / zoom;
-    this.ctx.strokeStyle = params.theme.minimapViewport;
+    this.ctx.strokeStyle = theme.minimapViewport;
     this.ctx.lineWidth = 1 / zoom;
     this.ctx.strokeRect(camera.x - w / 2, camera.y - h / 2, w, h);
     this.ctx.restore();
   }
 
-  private drawEntities(entities: MapEntityState[], theme: ColorTheme) {
+  private drawEntities(entities: MapEntityState[]) {
     this.ctx.save();
     entities.forEach((entity) => {
       this.ctx.save();

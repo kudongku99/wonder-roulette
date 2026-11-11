@@ -1,26 +1,33 @@
-export function rad(degree: number) {
-  return (Math.PI * degree) / 180;
-}
+export const MAX_MARBLES = 100;
 
-function getRegexValue(regex: RegExp, str: string) {
-  const result = regex.exec(str);
-  return result ? result[1] : '';
-}
-
+/** '이름' 또는 '이름*개수'. 이름이 비어 있으면 null */
 export function parseName(nameStr: string) {
-  const weightRegex = /\/(\d+)/;
-  const countRegex = /\*(\d+)/;
-  const hasWeight = weightRegex.test(nameStr);
-  const hasCount = countRegex.test(nameStr);
-  const name = getRegexValue(/^\s*([^/*]+)?/, nameStr);
-  if (!name) return null;
-  const weight = hasWeight ? parseInt(getRegexValue(weightRegex, nameStr), 10) : 1;
-  const count = hasCount ? parseInt(getRegexValue(countRegex, nameStr), 10) : 1;
-  return {
-    name,
-    weight,
-    count,
-  };
+  const match = /^\s*([^*\s][^*]*?)\s*(?:\*\s*(\d+))?\s*$/.exec(nameStr);
+  if (!match) return null;
+  return { name: match[1], count: match[2] ? parseInt(match[2], 10) : 1 };
+}
+
+export type Member = { name: string; count: number };
+
+/**
+ * 입력 순서대로 구슬 수를 더해 가다가, 합계가 max 를 넘게 만드는 항목은 통째로 받지 않는다.
+ * rejected 는 받지 않은 항목의 원래 문자열이다
+ */
+export function limitMembers(names: string[], max: number = MAX_MARBLES): { members: Member[]; rejected: string[] } {
+  const members: Member[] = [];
+  const rejected: string[] = [];
+  let total = 0;
+  for (const nameStr of names) {
+    const member = parseName(nameStr);
+    if (!member) continue;
+    if (total + member.count > max) {
+      rejected.push(nameStr);
+      continue;
+    }
+    total += member.count;
+    members.push(member);
+  }
+  return { members, rejected };
 }
 
 export function pad(v: number) {

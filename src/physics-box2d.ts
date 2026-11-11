@@ -149,26 +149,6 @@ export class Box2dPhysics implements IPhysics {
     });
   }
 
-  impact(id: number): void {
-    const src = this.marbleMap[id];
-    if (!src) return;
-
-    Object.values(this.marbleMap).forEach((body) => {
-      if (body === src) return;
-
-      const distVector = new this.Box2D.b2Vec2(body.GetPosition().x, body.GetPosition().y);
-      distVector.op_sub(src.GetPosition());
-      const distSq = distVector.LengthSquared();
-
-      if (distSq < 100) {
-        distVector.Normalize();
-        const power = 1 - distVector.Length() / 10;
-        distVector.op_mul(power * power * 5);
-        body.ApplyLinearImpulseToCenter(distVector, true);
-      }
-    });
-  }
-
   start(): void {
     for (const key in this.marbleMap) {
       const marble = this.marbleMap[key];

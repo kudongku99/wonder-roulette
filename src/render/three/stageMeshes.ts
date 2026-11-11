@@ -9,7 +9,7 @@ import {
   MeshStandardMaterial,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import type { ColorTheme } from '../../types/ColorTheme';
+import { theme } from '../../data/constants';
 import type { EntityShape, MapEntityState } from '../../types/MapEntity.type';
 
 /** 장애물의 깊이 방향 두께. 구슬 지름(0.5) 보다 조금 크게 둔다 */
@@ -17,7 +17,7 @@ export const STAGE_DEPTH = 0.6;
 /** polyline 벽의 두께. 물리에서는 두께 없는 선이다 */
 const WALL_THICKNESS = 0.1;
 const PIN_SEGMENTS = 24;
-/** 발광 테마에서 색에 섞는 자체 발광 비율. 블룸이 이 밝기를 번지게 한다 */
+/** 색에 섞는 자체 발광 비율. 블룸이 이 밝기를 번지게 한다 */
 const GLOW_EMISSIVE_INTENSITY = 0.35;
 const GLOW_BASE_DIM = 0.55;
 
@@ -56,8 +56,8 @@ function createGeometry(shape: EntityShape): BufferGeometry {
   }
 }
 
-/** 2D 렌더러와 같은 규칙: box 는 채움색, circle 과 polyline 은 외곽선색. 맵이 색을 지정했으면 그 색 */
-function colorOf(shape: EntityShape, theme: ColorTheme): string {
+/** box 는 채움색, circle 과 polyline 은 외곽선색. 맵이 색을 지정했으면 그 색 */
+function colorOf(shape: EntityShape): string {
   if (shape.color) return shape.color;
   const colors = theme.entity[shape.type];
   return shape.type === 'box' ? colors.fill : colors.outline;
@@ -71,18 +71,12 @@ export class StageMeshes {
   readonly group = new Group();
   private _records: EntityRecord[] = [];
   private _materials = new Map<string, Material>();
-  private _theme: ColorTheme | null = null;
 
   get count() {
     return this._records.length;
   }
 
-  sync(entities: MapEntityState[], theme: ColorTheme) {
-    if (theme !== this._theme) {
-      this.clear();
-      this._theme = theme;
-    }
-
+  sync(entities: MapEntityState[]) {
     // 물리 쪽 목록은 순서를 지킨 채 중간이 빠지기만 하므로, 앞에서부터 맞춰 가며 사라진 것을 지운다.
     // 맵이 바뀌면 도형 객체가 전부 달라 모두 새로 만들어진다
     const next: EntityRecord[] = [];
@@ -91,7 +85,7 @@ export class StageMeshes {
       while (cursor < this._records.length && this._records[cursor].shape !== entity.shape) {
         this.remove(this._records[cursor++]);
       }
-      const record = cursor < this._records.length ? this._records[cursor++] : this.create(entity.shape, theme);
+      const record = cursor < this._records.length ? this._records[cursor++] : this.create(entity.shape);
       record.mesh.position.set(entity.x, entity.y, 0);
       record.mesh.rotation.z = entity.angle;
       next.push(record);
@@ -107,9 +101,8 @@ export class StageMeshes {
     this._materials.clear();
   }
 
-  private create(shape: EntityShape, theme: ColorTheme): EntityRecord {
-    const glows = theme.entity[shape.type].bloomRadius > 0;
-    const mesh = new Mesh(createGeometry(shape), this.materialFor(colorOf(shape, theme), glows));
+  private create(shape: EntityShape): EntityRecord {
+    const mesh = new Mesh(createGeometry(shape), this.materialFor(colorOf(shape)));
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     this.group.add(mesh);
@@ -121,20 +114,19 @@ export class StageMeshes {
     record.mesh.geometry.dispose();
   }
 
-  private materialFor(color: string, glows: boolean): Material {
-    const key = `${color}|${glows}`;
-    let material = this._materials.get(key);
+  private materialFor(color: string): Material {
+    let material = this._materials.get(color);
     if (!material) {
       const base = new Color(color);
       material = new MeshStandardMaterial({
         // 발광을 더해도 하얗게 날아가지 않고 면마다 밝기 차이가 남도록 바탕색을 낮춘다
-        color: glows ? base.clone().multiplyScalar(GLOW_BASE_DIM) : base,
+        color: base.clone().multiplyScalar(GLOW_BASE_DIM),
         emissive: base,
-        emissiveIntensity: glows ? GLOW_EMISSIVE_INTENSITY : 0,
+        emissiveIntensity: GLOW_EMISSIVE_INTENSITY,
         roughness: 0.45,
         metalness: 0.15,
       });
-      this._materials.set(key, material);
+      this._materials.set(color, material);
     }
     return material;
   }

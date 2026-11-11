@@ -26,91 +26,27 @@
   }
 
   function parseName(nameStr) {
-    const weightRegex = /(\/\d+)/;
-    const countRegex = /(\*\d+)/;
-    const hasWeight = weightRegex.test(nameStr);
-    const hasCount = countRegex.test(nameStr);
-    const name = /^\s*([^\/*]+)?/.exec(nameStr)[1];
-    const weight = hasWeight ? parseInt(weightRegex.exec(nameStr)[1].replace('/', '')) : 1;
-    const count = hasCount ? parseInt(countRegex.exec(nameStr)[1].replace('*', '')) : 1;
-    return {
-      name,
-      weight,
-      count,
-    };
+    const match = /^\s*([^*\s][^*]*?)\s*(?:\*\s*(\d+))?\s*$/.exec(nameStr);
+    if (!match) return null;
+    return { name: match[1], count: match[2] ? parseInt(match[2], 10) : 1 };
   }
 
   function getReady() {
     const names = getNames();
-    window.roulette.setMarbles(names);
-    ready = names.length > 0;
+    const rejected = window.roulette.setMarbles(names);
+    ready = window.roulette.getCount() > 0;
     localStorage.setItem('mbr_names', names.join(','));
-    applyWinnerSetting();
+    document.querySelector('#namesLimit').hidden = rejected.length === 0;
   }
-
-  // 구슬 수가 바뀔 때마다 다시 호출된다. 범위 클리핑은 roulette이 하고, 잘린 결과를 input에 되돌려 쓴다.
-  // edited는 사용자가 방금 고친 범위 input('start' | 'end')
-  function applyWinnerSetting(edited) {
-    const rankInput = document.querySelector('#in_winningRank');
-    const startInput = document.querySelector('#in_rangeStart');
-    const endInput = document.querySelector('#in_rangeEnd');
-
-    let start;
-    let end;
-    switch (winnerType) {
-      case 'first':
-        start = end = 1;
-        break;
-      case 'last':
-        start = end = window.roulette.getCount();
-        break;
-      case 'multi':
-        start = parseInt(startInput.value, 10) || 1;
-        end = parseInt(endInput.value, 10) || 1;
-        // 뒤집힌 범위는 방금 고친 쪽을 존중하고 반대쪽을 따라오게 한다
-        if (end < start) {
-          if (edited === 'end') {
-            start = end;
-          } else {
-            end = start;
-          }
-        }
-        break;
-      default:
-        start = end = parseInt(rankInput.value, 10) || 1;
-    }
-
-    window.roulette.setWinnerRange(start - 1, end - 1);
-    const clipped = window.roulette.getWinnerRange();
-    // 범위 input은 여러명 모드일 때만 건드린다. 다른 모드가 덮어쓰면 사용자가 넣어둔 범위가 날아간다
-    if (winnerType === 'multi') {
-      startInput.value = clipped.start + 1;
-      endInput.value = clipped.end + 1;
-    } else {
-      rankInput.value = clipped.start + 1;
-    }
-
-    document.querySelector('.btn-first-winner').classList.toggle('active', winnerType === 'first');
-    document.querySelector('.btn-last-winner').classList.toggle('active', winnerType === 'last');
-    document.querySelector('.btn-multi-winner').classList.toggle('active', winnerType === 'multi');
-    rankInput.classList.toggle('active', winnerType === 'custom');
-    document.querySelector('.row-range').classList.toggle('active', winnerType === 'multi');
-  }
-
-  function selectWinnerType(type, edited) {
-    winnerType = type;
-    applyWinnerSetting(edited);
-  }
-
 
   let ready = false;
-  let winnerType = 'first';
 
   document.addEventListener('DOMContentLoaded', () => {
     initialize();
   });
 
   function initialize() {
+    if (document.documentElement.classList.contains('unsupported')) return;
     if (!window.roulette || !window.roulette.isReady) {
       console.log('does not loaded yet');
       setTimeout(initialize, 100);
@@ -118,16 +54,9 @@
     }
     console.log('initializing start');
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const namesFromUrl = urlParams.get('names');
-
-    if (namesFromUrl) {
-      document.querySelector('#in_names').value = namesFromUrl.replace(/,/g, '\n');
-    } else {
-      const savedNames = localStorage.getItem('mbr_names');
-      if (savedNames) {
-        document.querySelector('#in_names').value = savedNames;
-      }
+    const savedNames = localStorage.getItem('mbr_names');
+    if (savedNames) {
+      document.querySelector('#in_names').value = savedNames;
     }
     document.querySelector('#in_names').addEventListener('input', () => {
       getReady();
@@ -135,25 +64,15 @@
 
     document.querySelector('#in_names').addEventListener('blur', () => {
       const nameSource = getNames();
-      const nameSet = new Set();
       const nameCounts = {};
       nameSource.forEach(nameSrc => {
         const name = parseName(nameSrc);
-        const key = name.weight > 1 ? `${name.name}/${name.weight}` : name.name;
-        if (!nameSet.has(key)) {
-          nameSet.add(key);
-          nameCounts[key] = 0;
-        }
-        nameCounts[key] += name.count;
+        if (!name) return;
+        nameCounts[name.name] = (nameCounts[name.name] || 0) + name.count;
       });
-      const result = [];
-      Object.keys(nameCounts).forEach(key => {
-        if (nameCounts[key] > 1) {
-          result.push(`${key}*${nameCounts[key]}`);
-        } else {
-          result.push(key);
-        }
-      });
+      const result = Object.keys(nameCounts).map(key =>
+        nameCounts[key] > 1 ? `${key}*${nameCounts[key]}` : key
+      );
 
       const oldValue = document.querySelector('#in_names').value;
       const newValue = result.join(',');
@@ -173,28 +92,6 @@
       document.querySelector('#settings').classList.add('hide');
       window.roulette.start();
     });
-
-    document.querySelector('#chkAutoRecording').addEventListener('change', (e) => {
-      window.options.autoRecording = e.target.matches(':checked');
-      window.roulette.setAutoRecording(window.options.autoRecording);
-    });
-
-    document.querySelector('#chkSkill').addEventListener('change', (e) => {
-      window.options.useSkills = e.target.matches(':checked');
-    });
-
-    document.querySelector('#chkDarkMode').addEventListener('change', (e) => {
-      window.options.darkMode = e.target.matches(':checked');
-      window.roulette.setTheme(window.options.darkMode ? 'dark' : 'light');
-      document.documentElement.classList.toggle('light', !window.options.darkMode);
-    });
-
-    document.querySelector('#in_winningRank').addEventListener('change', () => selectWinnerType('custom'));
-    document.querySelector('.btn-last-winner').addEventListener('click', () => selectWinnerType('last'));
-    document.querySelector('.btn-first-winner').addEventListener('click', () => selectWinnerType('first'));
-    document.querySelector('.btn-multi-winner').addEventListener('click', () => selectWinnerType('multi'));
-    document.querySelector('#in_rangeStart').addEventListener('change', () => selectWinnerType('multi', 'start'));
-    document.querySelector('#in_rangeEnd').addEventListener('change', () => selectWinnerType('multi', 'end'));
 
     window.roulette.addEventListener('goal', () => {
       ready = false;
@@ -217,9 +114,9 @@
 
     document.querySelector('#btnShuffle').click();
 
-    // 맵을 바꾸면 살아남은 구슬에서 이름을 뽑아 재구성하는데, 골인한 구슬이 사라지고
-    // 무게(/n)도 날아가므로 원본인 이름 입력창에서 다시 채운다
-    window.initMapSelector(getReady, simpleToast);
+    // 맵을 바꾸면 살아남은 구슬에서 이름을 뽑아 재구성하는데, 골인한 구슬이 사라지므로
+    // 원본인 이름 입력창에서 다시 채운다
+    window.initMapSelector(getReady);
 
     function simpleToast(msg) {
       const toast = document.createElement('div');
@@ -253,51 +150,6 @@
         </label>
         <div class="map-picker">
           <select id="sltMap"></select>
-          <button id="btnLoadMap" class="btn-map-action" type="button" title="Load a map file" data-trans="title">+</button>
-          <input id="inMapFile" type="file" accept=".json,application/json" hidden />
-        </div>
-      </div>
-      <div class="row row-toggles">
-        <div class='toggle-item'>
-          <label for='chkAutoRecording'>
-            <i class="icon record"></i>
-            <span data-trans>Recording</span>
-          </label>
-          <input type="checkbox" id="chkAutoRecording" />
-        </div>
-        <div class='toggle-item'>
-          <label for='chkSkill'>
-            <i class="icon bomb"></i>
-            <span data-trans>Using skills</span>
-          </label>
-          <input type="checkbox" id="chkSkill" checked />
-        </div>
-      </div>
-      <div class="row">
-        <label>
-          <i class="icon trophy"></i>
-          <span data-trans>The winner is</span>
-        </label>
-        <div class="btn-group">
-          <button class="btn-winner btn-first-winner active" data-trans>First</button>
-          <button class="btn-winner btn-last-winner" data-trans>Last</button>
-          <input type="number" id="in_winningRank" value="1" min="1" />
-          <button class="btn-winner btn-multi-winner" data-trans>Multiple</button>
-        </div>
-      </div>
-      <div class="row row-range">
-        <label></label>
-        <div class="btn-group range-group">
-          <input type="number" id="in_rangeStart" value="1" min="1" />
-          <span class="range-sep">~</span>
-          <input type="number" id="in_rangeEnd" value="3" min="1" />
-        </div>
-      </div>
-      <div class="row row-theme">
-        <div class='theme'>
-          <i class='icon sun'></i>
-          <input type='checkbox' id='chkDarkMode' checked />
-          <i class='icon moon'></i>
         </div>
       </div>
     </div>
@@ -305,6 +157,7 @@
   <div class="left">
     <h3 data-trans>Enter names below</h3>
     <textarea id="in_names" placeholder="Input names separated by commas or line feed here" data-trans="placeholder">수박*2,키위*2,귤*2</textarea>
+    <p id="namesLimit" class="names-limit" hidden data-trans>Up to 100 marbles. Entries over the limit are left out.</p>
     <div class="actions">
       <button id="btnShuffle">
         <i class="icon shuffle"></i>
