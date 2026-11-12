@@ -1,11 +1,13 @@
 import { stages } from '../data/maps';
 import { Hud } from '../hud/hud';
 import type { Roulette } from '../roulette';
+import { SettingsStore } from '../settings';
 import { GameControls } from './gameControls';
 import { Lobby } from './lobby';
 import { MapSelect } from './mapSelect';
 import { toEntryStrings } from './nameList';
 import { type Screen, ScreenMachine } from './screenMachine';
+import { SettingsPanel } from './settingsPanel';
 import { loadMapIndex, loadNames, saveMapIndex, saveNames } from './storage';
 
 /**
@@ -55,7 +57,9 @@ export function startApp(root: HTMLElement, roulette: Roulette) {
       machine.go('lobby');
     },
   });
-  root.append(lobby.node, mapSelect.node, controls.node);
+  const settings = new SettingsStore();
+  settings.subscribe((value) => roulette.applySettings(value));
+  root.append(lobby.node, mapSelect.node, controls.node, new SettingsPanel(settings).node);
 
   roulette.onFrame((frame) => hud.update(frame));
   roulette.addEventListener('winner', () => machine.go('result'));

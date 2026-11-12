@@ -9,6 +9,7 @@ import { Marble } from './marble';
 import { Box2dPhysics } from './physics-box2d';
 import { ProgressMap } from './progressMap';
 import { ThreeWorldRenderer } from './render/three/threeWorldRenderer';
+import type { Settings } from './settings';
 import type { VectorLike } from './types/VectorLike';
 import { bound } from './utils/bound.decorator';
 import { limitMembers, shuffle } from './utils/utils';
@@ -321,7 +322,7 @@ export class Roulette extends EventTarget {
       winner: this._winner,
       finished: this._finished,
       camera: this._camera,
-      viewSize: this._renderer.viewSize,
+      viewQuad: this._renderer.viewQuad,
       labels,
     };
     for (const listener of this._frameListeners) listener(frame);
@@ -344,6 +345,11 @@ export class Roulette extends EventTarget {
     this._inLobby = entries !== null;
     if (entries) this._lobby.setEntries(entries);
     else this._lobby.clear();
+  }
+
+  /** 기울기, 그림자, 블룸 설정을 화면에 바로 반영한다 */
+  public applySettings(settings: Settings) {
+    this._renderer.applySettings(settings);
   }
 
   /** 누르고 있는 동안처럼 잠깐 빠르게 돌린다 */

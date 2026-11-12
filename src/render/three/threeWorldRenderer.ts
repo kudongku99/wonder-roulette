@@ -21,13 +21,15 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { canvasHeight, canvasWidth, initialZoom, theme } from '../../data/constants';
+import { canvasHeight, canvasWidth, theme } from '../../data/constants';
 import type { Marble } from '../../marble';
+import type { Settings } from '../../settings';
 import type { VectorLike } from '../../types/VectorLike';
 import type { WorldDebugDraw, WorldFrame } from '../worldFrame';
-import { applyView2d, CAMERA_FOV, finishAngle } from './cameraRig';
+import { applyView2d, CAMERA_FOV, CAMERA_TILT, finishAngle, groundQuad } from './cameraRig';
 import { ConfettiMeshes } from './confettiMeshes';
 import { DebugPlane } from './debugPlane';
+import { FloorPlane } from './floorPlane';
 import { MarbleMeshes } from './marbleMeshes';
 import { projectMarble, type ScreenMarble } from './marbleProjection';
 import { STAGE_DEPTH, StageMeshes } from './stageMeshes';
@@ -39,8 +41,8 @@ const MAX_PIXEL_WIDTH = 1920;
 const MIN_VIEW_WIDTH = 640;
 /** 배경판 한 변의 길이. 어떤 줌에서도 화면을 다 덮도록 넉넉히 둔다 */
 const BACKBOARD_SIZE = 600;
-/** 배경판은 그림자가 보이도록 배경색에서 이 색 쪽으로 밝힌다 */
-const BACKBOARD_TINT = new Color('#2b3050');
+/** 맵 바깥(배경판) 은 어둡게, 구슬이 다니는 안쪽 바닥은 그림자가 보이도록 밝게 칠한다 */
+const FLOOR_COLORS = { inside: '#252b4d', outside: '#07080f', grid: '#2e3560' };
 const SHADOW_MAP_SIZE = 2048;
 /** 빛이 오는 방향 (Three.js 좌표). 왼쪽 위 앞에서 비춘다 */
 const SUN_DIRECTION = { x: -0.45, y: 0.75, z: 1 };
@@ -81,11 +83,16 @@ export class ThreeWorldRenderer {
   private _marbles: MarbleMeshes;
   private _confetti = new ConfettiMeshes();
   private _debug = new DebugPlane(-STAGE_DEPTH / 2);
+  private _floor = new FloorPlane(-STAGE_DEPTH / 2 - 0.01, FLOOR_COLORS);
   private _backboard: Mesh<PlaneGeometry, MeshStandardMaterial>;
   private _sun = new DirectionalLight(0xffffff, 1.3);
   private _ambient = new AmbientLight(0xffffff, 0.15);
   private _composer: EffectComposer | null = null;
   private _bloom: UnrealBloomPass | null = null;
+  private _bloomEnabled = true;
+  private _tilt = CAMERA_TILT;
+  /** 마지막으로 그린 화면의 네 모서리가 z = 0 평면에 닿는 점 (물리 좌표) */
+  private _viewQuad: [number, number][] = [];
 
   /** WebGL 을 쓸 수 없으면 예외를 던진다 */
   constructor() {
@@ -108,11 +115,12 @@ export class ThreeWorldRenderer {
       new PlaneGeometry(BACKBOARD_SIZE, BACKBOARD_SIZE),
       new MeshStandardMaterial({ roughness: 0.9, metalness: 0 })
     );
-    this._backboard.material.color.copy(background).lerp(BACKBOARD_TINT, 0.22);
+    this._backboard.material.color.set(FLOOR_COLORS.outside);
     this._backboard.position.z = -STAGE_DEPTH / 2 - 0.02;
     this._backboard.receiveShadow = true;
     this._world.add(this._backboard);
 
+    this._world.add(this._floor.mesh);
     this._world.add(this._debug.mesh);
     this._world.add(this._stage.group);
     this._marbles = new MarbleMeshes(MARBLE_RADIUS, createMarblePattern());
@@ -161,7 +169,21 @@ export class ThreeWorldRenderer {
     resize();
   }
 
+  /** 기울기, 그림자, 블룸 설정을 바로 반영한다 */
+  applySettings(settings: Settings) {
+    this._tilt = (settings.tilt * Math.PI) / 180;
+    this._sun.castShadow = settings.shadows;
+    this._bloomEnabled = settings.bloom;
+    if (this._bloom) this._bloom.enabled = settings.bloom;
+  }
+
+  /** 마지막으로 그린 화면의 네 모서리가 구슬 평면에 닿는 점. 물리 좌표로 왼쪽 위부터 시계 방향이다 */
+  get viewQuad(): [number, number][] {
+    return this._viewQuad;
+  }
+
   render(frame: WorldFrame): void {
+    this._floor.sync(frame.floor === false ? null : frame.stage);
     this._stage.sync(frame.entities);
     this._marbles.sync(frame.marbles);
     this._confetti.sync(frame.bursts);
@@ -169,13 +191,10 @@ export class ThreeWorldRenderer {
 
     const { camera } = frame;
     const viewSize = this._viewSize;
-    applyView2d(this._camera, camera, viewSize.x, viewSize.y, finishAngle(camera.zoom, performance.now() / 1000));
-    this.followView(
-      camera.x,
-      camera.y,
-      viewSize.x / (initialZoom * camera.zoom),
-      viewSize.y / (initialZoom * camera.zoom)
-    );
+    const angle = finishAngle(camera.zoom, performance.now() / 1000, this._tilt);
+    applyView2d(this._camera, camera, viewSize.x, viewSize.y, angle);
+    this._viewQuad = groundQuad(this._camera);
+    this.followView(camera.x, camera.y, this._viewQuad);
 
     this.composer().render();
   }
@@ -185,8 +204,8 @@ export class ThreeWorldRenderer {
     return projectMarble(this._camera, marble.x, marble.y, marble.size / 2);
   }
 
-  /** 배경판과 그림자 범위가 지금 보이는 곳을 따라가게 한다. 인자는 물리 좌표의 화면 중심과 보이는 크기 */
-  private followView(x: number, y: number, visibleWidth: number, visibleHeight: number) {
+  /** 배경판과 그림자 범위가 지금 보이는 곳을 따라가게 한다. 인자는 물리 좌표의 화면 중심과 화면이 평면에 닿는 네 점 */
+  private followView(x: number, y: number, quad: [number, number][]) {
     this._backboard.position.x = x;
     this._backboard.position.y = y;
 
@@ -196,8 +215,10 @@ export class ThreeWorldRenderer {
       -y + SUN_DIRECTION.y * SUN_DISTANCE,
       SUN_DIRECTION.z * SUN_DISTANCE
     );
-    // 기울여 볼 때 화면 위아래로 더 보이는 만큼 여유를 둔다
-    const half = Math.max(visibleWidth, visibleHeight) * 0.8 + 2;
+    // 그림자 카메라는 빛 방향으로 비스듬히 보므로 화면이 닿는 범위보다 넉넉히 잡는다
+    let reach = 0;
+    for (const [qx, qy] of quad) reach = Math.max(reach, Math.abs(qx - x), Math.abs(qy - y));
+    const half = reach * 1.15 + 2;
     const shadowCamera = this._sun.shadow.camera;
     shadowCamera.left = -half;
     shadowCamera.right = half;
@@ -215,6 +236,7 @@ export class ThreeWorldRenderer {
       this._composer.setSize(width, height);
       this._composer.addPass(new RenderPass(this._scene, this._camera));
       this._bloom = new UnrealBloomPass(new Vector2(width, height), 0.35, 0.3, 0.78);
+      this._bloom.enabled = this._bloomEnabled;
       this._composer.addPass(this._bloom);
       this._composer.addPass(new OutputPass());
     }

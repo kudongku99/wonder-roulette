@@ -20,6 +20,8 @@ export type WorldFrame = {
   marbles: MarbleBody[];
   /** 1등 구슬이 골인한 자리의 축하 효과 */
   bursts: GoalBurst[];
+  /** false 면 맵 안팎을 칠한 바닥을 깔지 않는다 (로비 박스처럼 맵 목록에 없는 무대) */
+  floor?: boolean;
 };
 
 /** 월드 좌표에 2D 로 덧그리는 디버그 그림 */

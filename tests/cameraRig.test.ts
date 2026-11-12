@@ -1,7 +1,7 @@
 import { PerspectiveCamera, Vector3 } from 'three';
 import { expect, test } from 'vitest';
 import { initialZoom } from '../src/data/constants';
-import { applyView2d, CAMERA_FOV, CAMERA_TILT, finishAngle } from '../src/render/three/cameraRig';
+import { applyView2d, CAMERA_FOV, CAMERA_TILT, finishAngle, groundQuad, MAX_TILT } from '../src/render/three/cameraRig';
 
 const WIDTH = 800;
 const HEIGHT = 450;
@@ -59,4 +59,45 @@ test('결승 연출 각도는 줌인이 없으면 기본값이고 줌인이 깊�
   expect(half.tilt).toBeGreaterThan(CAMERA_TILT);
   expect(full.tilt).toBeGreaterThan(half.tilt);
   expect(finishAngle(9, 0).tilt).toBe(full.tilt);
+});
+
+test('결승 연출의 추가 기울기는 기본 각도에 비례하고 한계를 넘지 않는다', () => {
+  const deg = (d: number) => (d * Math.PI) / 180;
+
+  expect(finishAngle(4, 0, 0).tilt).toBe(0);
+  expect(finishAngle(4, 0, deg(20)).tilt).toBeCloseTo(finishAngle(4, 0, deg(10)).tilt * 2);
+  expect(finishAngle(4, 0, deg(-20)).tilt).toBeCloseTo(-finishAngle(4, 0, deg(20)).tilt);
+  expect(finishAngle(4, 0, deg(60)).tilt).toBe(MAX_TILT);
+});
+
+test('기울이지 않으면 화면이 평면에 닿는 범위는 2D 와 같은 직사각형이다', () => {
+  const view = { x: 12, y: 40, zoom: 2 };
+  const camera = new PerspectiveCamera(CAMERA_FOV);
+  applyView2d(camera, view, WIDTH, HEIGHT, { tilt: 0, yaw: 0 });
+
+  const halfW = WIDTH / (initialZoom * view.zoom) / 2;
+  const halfH = HEIGHT / (initialZoom * view.zoom) / 2;
+  const expected = [
+    [view.x - halfW, view.y - halfH],
+    [view.x + halfW, view.y - halfH],
+    [view.x + halfW, view.y + halfH],
+    [view.x - halfW, view.y + halfH],
+  ];
+  groundQuad(camera).forEach(([x, y], i) => {
+    expect(x).toBeCloseTo(expected[i][0]);
+    expect(y).toBeCloseTo(expected[i][1]);
+  });
+});
+
+test('기울여 보면 카메라에서 먼 화면 아래쪽이 더 넓고 더 멀리까지 닿는다', () => {
+  const view = { x: 12, y: 40, zoom: 1 };
+  const flat = new PerspectiveCamera(CAMERA_FOV);
+  applyView2d(flat, view, WIDTH, HEIGHT, { tilt: 0, yaw: 0 });
+  const tilted = new PerspectiveCamera(CAMERA_FOV);
+  applyView2d(tilted, view, WIDTH, HEIGHT, { tilt: (30 * Math.PI) / 180, yaw: 0 });
+
+  const [tl, tr, br, bl] = groundQuad(tilted);
+  const [, , flatBr] = groundQuad(flat);
+  expect(br[0] - bl[0]).toBeGreaterThan(tr[0] - tl[0]);
+  expect(br[1]).toBeGreaterThan(flatBr[1]);
 });

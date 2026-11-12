@@ -139,6 +139,7 @@ export class LobbyBox {
       entities: this.physics.getEntities(),
       marbles: this._marbles,
       bursts: [],
+      floor: false,
     };
   }
 

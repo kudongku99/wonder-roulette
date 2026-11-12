@@ -1,11 +1,13 @@
-import type { PerspectiveCamera } from 'three';
+import { type PerspectiveCamera, Vector3 } from 'three';
 import { initialZoom } from '../../data/constants';
 
 export const CAMERA_FOV = 40;
-/** 카메라를 위로 들어 올려 장애물 윗면이 보이게 하는 각도 (라디안) */
-export const CAMERA_TILT = 0.3;
-/** 결승 연출로 줌인이 끝까지 걸렸을 때 더 기울이는 각도 */
-const FINISH_EXTRA_TILT = 0.35;
+/** 카메라를 위로 들어 올려 장애물 윗면이 보이게 하는 기본 각도 (라디안). 환경설정에서 바꿀 수 있다 */
+export const CAMERA_TILT = (17 * Math.PI) / 180;
+/** 결승 연출로 줌인이 끝까지 걸렸을 때 기본 각도에 더하는 비율. 기본 각도가 0 이면 더 기울지 않는다 */
+const FINISH_TILT_RATIO = 0.35 / 0.3;
+/** 결승 연출을 더한 각도의 한계. 이보다 기울면 화면 위쪽이 지평선 너머로 넘어간다 */
+export const MAX_TILT = (60 * Math.PI) / 180;
 /** 결승 연출 중 좌우로 도는 폭과 한 번 왕복하는 시간 (초) */
 const FINISH_YAW = 0.22;
 const FINISH_YAW_PERIOD = 7;
@@ -16,14 +18,17 @@ export type View2d = { x: number; y: number; zoom: number };
 export type CameraAngle = { tilt: number; yaw: number };
 
 /**
- * 결승 연출용 카메라 각도. 줌인이 깊어질수록 더 기울이고 좌우로 천천히 돈다.
+ * 결승 연출용 카메라 각도. 줌인이 깊어질수록 기본 각도에 비례해 더 기울이고 좌우로 천천히 돈다.
+ * 기본 각도가 음수면(아래에서 올려다보면) 그쪽으로 더 기운다.
  * @param seconds 흐르는 시간. 좌우로 도는 위치를 정한다
+ * @param baseTilt 기본 각도 (라디안)
  */
-export function finishAngle(zoom: number, seconds: number): CameraAngle {
+export function finishAngle(zoom: number, seconds: number, baseTilt: number = CAMERA_TILT): CameraAngle {
   const t = Math.min(1, Math.max(0, (zoom - 1) / (FINISH_ZOOM - 1)));
   const ease = t * t * (3 - 2 * t);
+  const tilt = baseTilt * (1 + FINISH_TILT_RATIO * ease);
   return {
-    tilt: CAMERA_TILT + FINISH_EXTRA_TILT * ease,
+    tilt: Math.max(-MAX_TILT, Math.min(MAX_TILT, tilt)),
     yaw: FINISH_YAW * ease * Math.sin((seconds * Math.PI * 2) / FINISH_YAW_PERIOD),
   };
 }
@@ -58,4 +63,27 @@ export function applyView2d(
   camera.lookAt(view.x, targetY, 0);
   camera.updateProjectionMatrix();
   camera.updateMatrixWorld();
+}
+
+const corner = new Vector3();
+const ray = new Vector3();
+const SCREEN_CORNERS: [number, number][] = [
+  [-1, 1],
+  [1, 1],
+  [1, -1],
+  [-1, -1],
+];
+
+/**
+ * 화면 네 모서리가 구슬이 구르는 평면(z = 0) 에서 닿는 점. 물리 좌표로 왼쪽 위, 오른쪽 위, 오른쪽 아래, 왼쪽 아래 순서다.
+ * 기울여 보면 먼 쪽(화면 위) 이 더 넓은 사다리꼴이 된다. camera 는 위치가 반영된 상태여야 한다.
+ */
+export function groundQuad(camera: PerspectiveCamera): [number, number][] {
+  const origin = camera.position;
+  return SCREEN_CORNERS.map(([sx, sy]) => {
+    ray.copy(corner.set(sx, sy, 0.5).unproject(camera)).sub(origin);
+    // 평면에 닿지 않는 방향이면 보이는 끝(far) 까지만 간다
+    const t = ray.z < 0 ? -origin.z / ray.z : camera.far / ray.length();
+    return [origin.x + ray.x * t, -(origin.y + ray.y * t)];
+  });
 }

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 구슬을 떨어뜨려 추첨하는 2D 게임 [lazygyu/roulette](https://github.com/lazygyu/roulette) 을 3D 로 리팩터링하는 프로젝트다. 원본 소스는 `../roulette/` 에 클론돼 있으며 **참조 전용이고 수정하지 않는다.** 원본 구조에 대한 상세 설명은 `../CLAUDE.md` 에 있다.
 
-현재 상태: 9단계(로비 구슬 박스)까지 끝났다. 6단계부터는 원본과의 기능 동등성을 내려놓고 3D 전용 추첨 게임으로 다시 짜는 중이다. 다음은 10단계(맵 안팎 색 구분, 환경설정 패널: 기울기·그림자·블룸)다. 단계별 계획과 바뀐 결정은 `docs/roadmap.md` 에 있다.
+현재 상태: 10단계(맵 시각 개선과 환경설정)까지 끝났다. 6단계부터는 원본과의 기능 동등성을 내려놓고 3D 전용 추첨 게임으로 다시 짜는 중이다. 남은 것은 11단계(성능 측정, 실제 기기 확인, 배포 구성)다. 단계별 계획과 바뀐 결정은 `docs/roadmap.md` 에 있다.
 
 ## 명령어
 
@@ -51,6 +51,14 @@ pnpm simulate goals 6,16,30   # 골인 시각 전체를 JSON 으로 출력
 - `Roulette.setLobby(목록 | null)` 이 로비 모드를 켜고 끈다. 켜져 있는 동안 게임 물리는 멈춰 있다.
 - 가로로 넓은 화면에서는 이름 입력 카드가 왼쪽, 박스가 오른쪽에 온다. 그 기준 비율은 `lobbyBox.ts` 의 `WIDE_ASPECT` 와 `ui.scss` 의 미디어 쿼리 두 곳에 있으니 같이 고친다.
 
+## 맵 바닥과 환경설정
+
+- 맵 안팎은 `ProgressMap.reachableFrom(출발점)` 으로 나눈다. 구슬 출발 자리에서 벽을 피해 아래·옆으로, 올라가는 구역에서만 위로 퍼진 칸이 안쪽이다. 결승선 아래에서는 퍼지지 않는다(맵 둘레 여백으로 새지 않게).
+- `src/render/stageFloor.ts` 의 `paintFloor` 가 이 칸으로 바닥 그림을 만든다. 3D 바닥(`FloorPlane`)과 맵 선택 썸네일이 같이 쓰고 색만 다르다. 바깥 색은 3D 배경판과 같아야 경계가 안 보인다. 로비 박스처럼 맵 목록에 없는 무대는 `WorldFrame.floor = false` 로 바닥을 깔지 않는다.
+- 환경설정(`src/settings.ts`)은 기울기(도, −30 ~ 30, 기본 17), 그림자, 블룸이다. `SettingsStore` 가 저장하고 바뀌면 `Roulette.applySettings` → 렌더러로 바로 넘긴다. 패널은 `src/ui/settingsPanel.ts` 이고 모든 화면 오른쪽 아래에 있다.
+- 결승 연출로 더 기우는 각도는 기본 기울기에 비례한다(`finishAngle` 의 세 번째 인자). 기본이 0 이면 더 기울지 않고, 음수면 그쪽으로 더 기운다. 합계는 ±60도(`MAX_TILT`)로 자른다.
+- 미니맵의 화면 범위는 직사각형이 아니라 화면 네 모서리를 구슬 평면에 투영한 사각형(`groundQuad`)이다. 지금 카메라는 맵 위쪽에서 내려다보므로 기울이면 화면 아래쪽(먼 쪽)이 넓은 사다리꼴이 된다. 그림자 범위도 이 사각형으로 잡는다.
+
 ## 게임 규칙
 
 - 당첨자는 항상 1등이다. `Roulette` 은 1등이 골인하면 `winner` 이벤트를, 모든 순위가 정해지면 `finish` 이벤트를 낸다. 남은 구슬이 하나면 그 구슬은 골인하지 않아도 순위가 정해진 것으로 본다.
@@ -74,15 +82,15 @@ pnpm simulate goals 6,16,30   # 골인 시각 전체를 JSON 으로 출력
 ### 3D 렌더러
 
 - 좌표 변환은 두 곳뿐이다. `_world` 그룹의 `scale.y = -1` 과 `applyView2d`(`cameraRig.ts`). 그 아래에 붙는 메시(`StageMeshes`, `MarbleMeshes`)는 물리 좌표와 물리 각도를 그대로 쓴다. 메시 코드에서 y 나 각도의 부호를 따로 뒤집지 않는다.
-- `applyView2d` 는 2D 카메라의 `(x, y, zoom)` 을 원근 카메라 거리로 바꾼다. z = 0 평면에서 보이는 세로 범위가 2D 카메라와 같아지게 해서 미니맵의 화면 범위 표시와 카메라 추적 로직이 그대로 맞는다. `CAMERA_TILT` 만큼 위에서 내려다보고, 결승 연출로 2D 줌이 1 을 넘으면 `finishAngle` 이 줌에 비례해 더 기울이고 좌우로 천천히 돈다. 연출 판정 자체는 2D 카메라의 줌 값을 읽을 뿐 따로 하지 않는다.
+- `applyView2d` 는 2D 카메라의 `(x, y, zoom)` 을 원근 카메라 거리로 바꾼다. z = 0 평면에서 보이는 세로 범위가 2D 카메라와 같아지게 해서 미니맵의 화면 범위 표시와 카메라 추적 로직이 그대로 맞는다. 환경설정의 기울기만큼 위에서 내려다보고(기본값 `CAMERA_TILT`), 결승 연출로 2D 줌이 1 을 넘으면 `finishAngle` 이 줌과 기본 기울기에 비례해 더 기울이고 좌우로 천천히 돈다. 연출 판정 자체는 2D 카메라의 줌 값을 읽을 뿐 따로 하지 않는다.
 - `StageMeshes.sync` 는 엔티티의 `shape` 객체 동일성으로 메시를 대응시킨다. `physics.getEntities()` 가 매 프레임 새 객체를 돌려주지만 `shape` 는 맵 데이터의 객체 그대로이기 때문이다. polyline 은 선분마다 얇은 박스를 만들어 하나로 합친다.
 - 구슬은 전부 `InstancedMesh` 하나이고, 구슬 수가 용량을 넘으면 두 배씩 키워 새로 만든다.
 - 구슬 이름표는 3D 로 만들지 않는다. `projectMarble`(`marbleProjection.ts`)이 구슬 중심과 반지름을 카메라로 투영해 화면 비율 좌표를 내고, HUD 의 `MarbleLabels` 가 그 자리에 HTML 요소를 놓는다.
 - 조명은 방향광 하나(그림자 포함), 약한 주변광, `RoomEnvironment` 환경광이다. 그림자를 받는 배경판과 그림자 카메라 범위는 매 프레임 `followView` 가 보이는 곳으로 옮긴다.
-- 장애물 재질에는 항상 자체 발광이 들어가고 `EffectComposer` 로 블룸을 건다. 밝기 값들은 화면을 보며 맞춘 것이라, 바꿀 때는 화면으로 확인한다.
+- 장애물 재질에는 항상 자체 발광이 들어가고 `EffectComposer` 로 블룸을 건다. 환경설정에서 블룸을 끄면 블룸 패스만 꺼지고 발광은 남는다. 그림자를 끄면 방향광의 `castShadow` 를 끈다. 밝기 값들은 화면을 보며 맞춘 것이라, 바꿀 때는 화면으로 확인한다.
 - 골인 축하 효과(`ConfettiMeshes`)는 시드와 경과 시간만으로 조각 위치를 계산해 프레임 사이 상태가 없다.
 - 디버그 그림은 `DebugPlane` 이 2D 캔버스에 한 번 그려 장애물 뒤쪽 평면의 텍스처로 쓴다. `WorldDebugDraw` 는 월드 좌표로 그리는 2D 함수 그대로다.
-- WebGL 이 필요한 `ThreeWorldRenderer` 자체는 테스트하지 않는다. GL 없이 돌아가는 `cameraRig`, `StageMeshes`, `MarbleMeshes`, `ConfettiMeshes`, `projectMarble` 을 단위 테스트한다. HUD 와 UI 는 DOM 이 필요 없는 부분(`rankRows`, `nameList`, `ScreenMachine`, `i18n`, `stageRangeX`)만 테스트한다. `LobbyBox` 는 가짜 `IPhysics` 를 넣어 테스트한다. 테스트 환경에 DOM 이 없으므로 규칙은 DOM 을 만지는 클래스 밖에 둔다. `DebugPlane` 은 DOM 캔버스가 필요해 테스트가 없다. 화면은 개발 서버에서 직접 확인한다.
+- WebGL 이 필요한 `ThreeWorldRenderer` 자체는 테스트하지 않는다. GL 없이 돌아가는 `cameraRig`, `StageMeshes`, `MarbleMeshes`, `ConfettiMeshes`, `projectMarble` 을 단위 테스트한다. HUD 와 UI 는 DOM 이 필요 없는 부분(`rankRows`, `nameList`, `ScreenMachine`, `i18n`, `stageRangeX`)만 테스트한다. `LobbyBox` 는 가짜 `IPhysics` 를 넣어 테스트한다. 맵 안쪽 칸(`reachableFrom`), 화면 사다리꼴(`groundQuad`), 설정 읽기(`parseSettings`)도 DOM 없이 테스트한다. 테스트 환경에 DOM 이 없으므로 규칙은 DOM 을 만지는 클래스 밖에 둔다. `DebugPlane` 은 DOM 캔버스가 필요해 테스트가 없다. 화면은 개발 서버에서 직접 확인한다.
 
 ## 원본과 달라진 점
 

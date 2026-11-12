@@ -1,4 +1,4 @@
-import { initialZoom, theme } from '../data/constants';
+import { theme } from '../data/constants';
 import type { StageDef } from '../data/maps';
 import { drawShapes, stageRangeX } from '../render/stage2d';
 import type { VectorLike } from '../types/VectorLike';
@@ -78,13 +78,14 @@ export class Minimap {
     }
   }
 
-  private drawViewport({ camera, viewSize }: HudFrame) {
+  private drawViewport({ viewQuad }: HudFrame) {
+    if (viewQuad.length === 0) return;
     const ctx = this._ctx;
-    const zoom = camera.zoom * initialZoom;
-    const w = viewSize.x / zoom;
-    const h = viewSize.y / zoom;
     ctx.strokeStyle = theme.minimapViewport;
     ctx.lineWidth = 1 / this._scale;
-    ctx.strokeRect(camera.x - w / 2, camera.y - h / 2, w, h);
+    ctx.beginPath();
+    for (const [x, y] of viewQuad) ctx.lineTo(x, y);
+    ctx.closePath();
+    ctx.stroke();
   }
 }

@@ -2,7 +2,6 @@ import type { StageDef } from '../data/maps';
 import type { Marble } from '../marble';
 import type { ScreenMarble } from '../render/three/marbleProjection';
 import type { MapEntityState } from '../types/MapEntity.type';
-import type { VectorLike } from '../types/VectorLike';
 
 /** 화면에 보이는 구슬 하나와 그 위치 */
 export type MarbleLabel = ScreenMarble & { marble: Marble };
@@ -21,8 +20,8 @@ export type HudFrame = {
   finished: boolean;
   /** 물리 좌표의 화면 중심과 줌 */
   camera: { x: number; y: number; zoom: number };
-  /** 보이는 월드 범위의 기준이 되는 화면 크기. 줌 1 일 때 이 크기 / initialZoom 만큼의 월드가 보인다 */
-  viewSize: VectorLike;
+  /** 화면 네 모서리가 구슬 평면에 닿는 점 (물리 좌표, 왼쪽 위부터 시계 방향). 기울여 보면 사다리꼴이다 */
+  viewQuad: [number, number][];
   /** 화면에 보이는 구슬들. marbles 와 같은 순서다 */
   labels: MarbleLabel[];
 };

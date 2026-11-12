@@ -41,6 +41,7 @@ export class ProgressMap {
   /** 칸마다 결승까지 거리. BLOCKED 는 벽, Infinity 는 결승선과 이어지지 않은 칸 */
   readonly dist: Float32Array;
   readonly maxDist: number;
+  readonly goalY: number;
   /** 올라가는 구역 (1 = 위로 갈 수 있음) */
   readonly lift: Uint8Array;
   /** 일방통행 선 근처 칸 (1 = 이 칸을 드나드는 이동은 일방통행 선과 교차하는지 확인한다) */
@@ -76,6 +77,7 @@ export class ProgressMap {
     this.lift = this.findLiftCells(stage.entities ?? []);
     this.oneWays = (stage.progress?.oneWays ?? []).filter((l) => l.from[0] !== l.to[0] || l.from[1] !== l.to[1]);
     this.nearOneWay = this.oneWays.length ? this.markOneWayCells() : null;
+    this.goalY = stage.goalY;
     this.maxDist = this.propagate(stage.goalY);
   }
 
@@ -351,6 +353,67 @@ export class ProgressMap {
     // 이어지지 않은 곳: y 순서는 지키되 이어진 곳보다 뒤
     if (best === Infinity) return UNREACHABLE - y;
     return best + extra;
+  }
+
+  /** 칸 한 변의 길이 (월드 단위) */
+  get cellSize() {
+    return CELL;
+  }
+
+  /**
+   * 구슬이 다닐 수 있는 칸 (1 = 다닐 수 있음). 맵의 안과 밖을 나누는 데 쓴다.
+   * seeds 에서 출발해 벽을 피해 아래와 옆으로 퍼지고, 위로는 올라가는 구역에서만 퍼진다.
+   * 결승선 아래 칸에서는 더 퍼지지 않아 맵 둘레의 여백으로 새지 않는다.
+   * 다닐 수 있는 칸에 붙은 벽 칸도 1 이다 (벽을 구슬 반지름만큼 두껍게 잡은 만큼 되돌린다)
+   */
+  reachableFrom(seeds: [number, number][]): Uint8Array {
+    const { cols, rows, dist, lift } = this;
+    const mask = new Uint8Array(cols * rows);
+    const goalRow = Math.ceil((this.goalY - this.minY) / CELL);
+    const queue: number[] = [];
+    for (const [x, y] of seeds) {
+      const c = Math.round((x - this.minX) / CELL);
+      const r = Math.round((y - this.minY) / CELL);
+      if (c < 0 || c >= cols || r < 0 || r >= rows) continue;
+      const i = r * cols + c;
+      if (dist[i] === BLOCKED || mask[i]) continue;
+      mask[i] = 1;
+      queue.push(i);
+    }
+    for (let head = 0; head < queue.length; head++) {
+      const i = queue[head];
+      const r = (i / cols) | 0;
+      const c = i - r * cols;
+      if (r >= goalRow) continue;
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (!dr && !dc) continue;
+          const nr = r + dr;
+          const nc = c + dc;
+          if (nc < 0 || nc >= cols || nr < 0 || nr >= rows) continue;
+          const j = nr * cols + nc;
+          if (mask[j] || dist[j] === BLOCKED) continue;
+          if (dc && dr && (dist[r * cols + nc] === BLOCKED || dist[nr * cols + c] === BLOCKED)) continue;
+          if (dr < 0 && !lift[i] && !lift[j]) continue;
+          mask[j] = 1;
+          queue.push(j);
+        }
+      }
+    }
+    for (const i of queue) {
+      const r = (i / cols) | 0;
+      const c = i - r * cols;
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          const nr = r + dr;
+          const nc = c + dc;
+          if (nc < 0 || nc >= cols || nr < 0 || nr >= rows) continue;
+          const j = nr * cols + nc;
+          if (dist[j] === BLOCKED) mask[j] = 1;
+        }
+      }
+    }
+    return mask;
   }
 
   /** 진행도 지도 그림 (테스트 플레이에서 순위 계산을 확인할 때). 한 칸 = 한 픽셀, 흰색 = 올라가는 구역 */

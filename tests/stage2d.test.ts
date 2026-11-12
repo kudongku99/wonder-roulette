@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 import type { StageDef } from '../src/data/maps';
 import { stages } from '../src/data/maps';
+import { ProgressMap } from '../src/progressMap';
 import { stageRangeX } from '../src/render/stage2d';
 import type { MapEntity } from '../src/types/MapEntity.type';
 
@@ -48,4 +49,17 @@ test('기본 맵은 모두 가로 범위가 기본 범위에서 크게 벗어나
     const { minX, maxX } = stageRangeX(stage);
     expect(maxX - minX).toBeLessThanOrEqual(30);
   }
+});
+
+test('구슬이 다니는 칸은 출발점에서 이어지고 결승선 아래 여백으로 새지 않는다', () => {
+  const stage = stages[0];
+  const map = ProgressMap.for(stage);
+  const mask = map.reachableFrom([[12, 1]]);
+  const at = (x: number, y: number) =>
+    mask[Math.round((y - map.minY) / map.cellSize) * map.cols + Math.round((x - map.minX) / map.cellSize)];
+
+  expect(at(12, 1)).toBe(1);
+  // 출발 통로 위쪽과 맵 둘레의 여백은 바깥이다
+  expect(at(12, map.minY + 0.5)).toBe(0);
+  expect(at(map.minX + 0.25, stage.goalY + 0.5)).toBe(0);
 });

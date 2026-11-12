@@ -1,6 +1,9 @@
-import { theme } from '../data/constants';
 import type { StageDef } from '../data/maps';
 import { drawShapes, stageRangeX, stageShapes } from '../render/stage2d';
+import { floorBounds, paintFloor } from '../render/stageFloor';
+
+/** 썸네일 바닥 색. 구슬이 다니는 안쪽을 밝게 해 길이 드러나게 한다 */
+const FLOOR_COLORS = { inside: '#3a4170', outside: '#101220' };
 
 /** 썸네일의 크기 (CSS 픽셀). 맵이 세로로 길어 세로형이다 */
 export const THUMBNAIL_WIDTH = 200;
@@ -21,7 +24,7 @@ export function createStageThumbnail(stage: StageDef): HTMLCanvasElement {
     (THUMBNAIL_HEIGHT - PADDING * 2) / stage.goalY
   );
   ctx.scale(ratio, ratio);
-  ctx.fillStyle = theme.minimapBackground;
+  ctx.fillStyle = FLOOR_COLORS.outside;
   ctx.fillRect(0, 0, THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT);
   ctx.translate(
     (THUMBNAIL_WIDTH - (maxX - minX) * scale) / 2 - minX * scale,
@@ -30,6 +33,8 @@ export function createStageThumbnail(stage: StageDef): HTMLCanvasElement {
   ctx.scale(scale, scale);
   // 맵이 길어 배율이 작아져도 선이 사라지지 않게 화면에서 1픽셀은 되게 한다
   ctx.lineWidth = Math.max(0.1, 1 / scale);
+  const bounds = floorBounds(stage);
+  ctx.drawImage(paintFloor(stage, FLOOR_COLORS, scale * ratio), bounds.x, bounds.y, bounds.w, bounds.h);
   drawShapes(ctx, stageShapes(stage));
   return canvas;
 }
