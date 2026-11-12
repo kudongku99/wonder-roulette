@@ -188,7 +188,7 @@
 - [ ] 저사양 대응 결정: 프레임이 떨어지는 기기에서 그림자·블룸을 자동으로 끌지
 - [ ] 실제 터치 기기에서 로비부터 결과까지 진행 확인
 - [ ] `simulate` 출력 원본 대조 최종 확인
-- [ ] 배포 구성
+- [x] 배포 구성: GitHub Actions 로 GitHub Pages 배포 (`https://kudongku99.github.io/wonder-roulette/`)
 
 ## 이후 검토
 

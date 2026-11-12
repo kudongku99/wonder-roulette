@@ -10,6 +10,8 @@
 
 화면은 로비(이름 입력) → 맵 선택 → 게임 → 결과 순서로 흐릅니다. 1등이 정해지면 순위표가 화면 가운데로 커지고, 나머지 구슬이 모두 들어올 때까지 게임은 뒤에서 계속됩니다. 게임 화면을 끌면 카메라 각도가 바뀝니다. 위아래로 끌면 기울기, 좌우로 끌면 옆으로 도는 각도이고(각각 −30° ~ 30°), 휠이나 핀치로 확대·축소(0.5 ~ 2.5배)합니다. 두 번 누르면 처음 시점으로 돌아갑니다. 계획과 진행 상황은 [docs/roadmap.md](docs/roadmap.md) 를 참고해 주세요.
 
+바로 해 보기: https://kudongku99.github.io/wonder-roulette/
+
 ## 실행
 
 ```shell
@@ -26,6 +28,10 @@ pnpm build      # 프로덕션 빌드
 pnpm test       # 테스트
 pnpm lint       # 린트와 포맷
 ```
+
+## 배포
+
+`main` 브랜치에 올리면 GitHub Actions(`.github/workflows/deploy.yml`)가 테스트와 빌드를 거쳐 GitHub Pages 에 배포합니다. 처음 한 번은 저장소 Settings → Pages → Source 를 **GitHub Actions** 로 바꿔야 합니다.
 
 ## 접근 방식
 

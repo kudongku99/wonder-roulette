@@ -30,6 +30,14 @@ pnpm simulate goals 6,16,30   # 골인 시각 전체를 JSON 으로 출력
 
 `tests/simulate.test.ts` 가 물리 시뮬레이션 회귀 테스트다. `tests/fixtures/simulate-goals.json` 은 **원본 코드**(lazygyu/roulette `e9a9d22`)로 뽑은 골인 시각이며, 이 프로젝트의 물리와 맵이 같은 값을 내는지 비교한다. 테스트가 깨졌다고 이 프로젝트의 출력으로 기준 파일을 다시 만들면 안 된다. 물리나 맵 데이터를 의도적으로 바꾼 경우에만, 사용자 확인을 받고 갱신한다.
 
+## 배포
+
+- GitHub Pages(`https://kudongku99.github.io/wonder-roulette/`)에 배포한다. 원격 저장소는 `kudongku99/wonder-roulette` 이고, `main` 에 푸시하면 `.github/workflows/deploy.yml` 이 설치 → 테스트 → 빌드 → 배포를 한다.
+- 사이트가 `/wonder-roulette/` 하위 경로에 올라가므로 빌드는 상대 경로(`vite.config.ts` 의 `base: './'`)다. 물리 엔진 wasm 도 JS 기준 상대 위치에서 찾는다. 절대 경로(`/assets/...`)로 파일을 참조하는 코드를 넣지 않는다.
+- 하위 경로 그대로 확인하려면 빌드한 뒤 `.claude/launch.json` 의 `wonder-roulette-pages` 미리보기(`vite preview --base /wonder-roulette/`, 4173 포트)로 `http://localhost:4173/wonder-roulette/` 를 연다.
+- pnpm 버전은 `package.json` 의 `packageManager`(12.16.1)로 고정하고, 잠금 파일도 이 버전을 기록한다. CI 는 `--frozen-lockfile` 로 설치하므로 `package.json` 이나 `pnpm-workspace.yaml` 을 바꾸면 `pnpm install` 로 잠금 파일을 같이 갱신해 올린다.
+- pnpm 12 는 승인 안 된 의존성 빌드 스크립트가 있으면 설치를 실패시킨다. `pnpm-workspace.yaml` 의 `allowBuilds` 에 `esbuild`, `@parcel/watcher` 를 `false`(실행 안 함)로 적어 두었다. 둘 다 스크립트 없이도 빌드·테스트가 된다. 새 의존성이 같은 경고를 내면 여기에 적는다.
+
 ## 화면 흐름과 UI
 
 ```
