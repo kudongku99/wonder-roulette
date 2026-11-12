@@ -52,6 +52,15 @@ body {
   user-select: none;
 }
 
+// 게임 화면을 끌어 카메라 각도를 바꾼다 (src/ui/viewDrag.ts)
+.world-canvas.is-draggable {
+  cursor: grab;
+}
+
+.world-canvas.is-dragging {
+  cursor: grabbing;
+}
+
 .copyright {
   position: fixed;
   bottom: 2px;

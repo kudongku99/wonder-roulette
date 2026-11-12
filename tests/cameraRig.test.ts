@@ -64,10 +64,19 @@ test('결승 연출 각도는 줌인이 없으면 기본값이고 줌인이 깊�
 test('결승 연출의 추가 기울기는 기본 각도에 비례하고 한계를 넘지 않는다', () => {
   const deg = (d: number) => (d * Math.PI) / 180;
 
-  expect(finishAngle(4, 0, 0).tilt).toBe(0);
-  expect(finishAngle(4, 0, deg(20)).tilt).toBeCloseTo(finishAngle(4, 0, deg(10)).tilt * 2);
-  expect(finishAngle(4, 0, deg(-20)).tilt).toBeCloseTo(-finishAngle(4, 0, deg(20)).tilt);
-  expect(finishAngle(4, 0, deg(60)).tilt).toBe(MAX_TILT);
+  const at = (tilt: number) => finishAngle(4, 0, { tilt: deg(tilt), yaw: 0 }).tilt;
+  expect(at(0)).toBe(0);
+  expect(at(20)).toBeCloseTo(at(10) * 2);
+  expect(at(-20)).toBeCloseTo(-at(20));
+  expect(at(60)).toBe(MAX_TILT);
+});
+
+test('결승 연출의 좌우 흔들림은 사용자가 고른 좌우 각도를 중심으로 한다', () => {
+  const base = { tilt: CAMERA_TILT, yaw: 0.3 };
+
+  expect(finishAngle(1, 5, base).yaw).toBe(0.3);
+  expect(finishAngle(4, 7 / 4, base).yaw).toBeGreaterThan(0.3);
+  expect(finishAngle(4, (7 * 3) / 4, base).yaw).toBeLessThan(0.3);
 });
 
 test('기울이지 않으면 화면이 평면에 닿는 범위는 2D 와 같은 직사각형이다', () => {

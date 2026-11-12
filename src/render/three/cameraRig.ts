@@ -2,7 +2,7 @@ import { type PerspectiveCamera, Vector3 } from 'three';
 import { initialZoom } from '../../data/constants';
 
 export const CAMERA_FOV = 40;
-/** 카메라를 위로 들어 올려 장애물 윗면이 보이게 하는 기본 각도 (라디안). 환경설정에서 바꿀 수 있다 */
+/** 카메라를 위로 들어 올려 장애물 윗면이 보이게 하는 기본 각도 (라디안). 게임 화면을 끌어 바꿀 수 있다 */
 export const CAMERA_TILT = (17 * Math.PI) / 180;
 /** 결승 연출로 줌인이 끝까지 걸렸을 때 기본 각도에 더하는 비율. 기본 각도가 0 이면 더 기울지 않는다 */
 const FINISH_TILT_RATIO = 0.35 / 0.3;
@@ -18,18 +18,22 @@ export type View2d = { x: number; y: number; zoom: number };
 export type CameraAngle = { tilt: number; yaw: number };
 
 /**
- * 결승 연출용 카메라 각도. 줌인이 깊어질수록 기본 각도에 비례해 더 기울이고 좌우로 천천히 돈다.
- * 기본 각도가 음수면(아래에서 올려다보면) 그쪽으로 더 기운다.
+ * 결승 연출용 카메라 각도. 줌인이 깊어질수록 기본 기울기에 비례해 더 기울이고, 기본 좌우 각도를 중심으로 천천히 돈다.
+ * 기본 기울기가 음수면(아래에서 올려다보면) 그쪽으로 더 기운다.
  * @param seconds 흐르는 시간. 좌우로 도는 위치를 정한다
- * @param baseTilt 기본 각도 (라디안)
+ * @param base 사용자가 고른 기본 각도 (라디안)
  */
-export function finishAngle(zoom: number, seconds: number, baseTilt: number = CAMERA_TILT): CameraAngle {
+export function finishAngle(
+  zoom: number,
+  seconds: number,
+  base: CameraAngle = { tilt: CAMERA_TILT, yaw: 0 }
+): CameraAngle {
   const t = Math.min(1, Math.max(0, (zoom - 1) / (FINISH_ZOOM - 1)));
   const ease = t * t * (3 - 2 * t);
-  const tilt = baseTilt * (1 + FINISH_TILT_RATIO * ease);
+  const tilt = base.tilt * (1 + FINISH_TILT_RATIO * ease);
   return {
     tilt: Math.max(-MAX_TILT, Math.min(MAX_TILT, tilt)),
-    yaw: FINISH_YAW * ease * Math.sin((seconds * Math.PI * 2) / FINISH_YAW_PERIOD),
+    yaw: base.yaw + FINISH_YAW * ease * Math.sin((seconds * Math.PI * 2) / FINISH_YAW_PERIOD),
   };
 }
 

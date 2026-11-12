@@ -23,10 +23,10 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { canvasHeight, canvasWidth, theme } from '../../data/constants';
 import type { Marble } from '../../marble';
-import type { Settings } from '../../settings';
 import type { VectorLike } from '../../types/VectorLike';
+import type { ViewAngle } from '../../viewAngle';
 import type { WorldDebugDraw, WorldFrame } from '../worldFrame';
-import { applyView2d, CAMERA_FOV, CAMERA_TILT, finishAngle, groundQuad } from './cameraRig';
+import { applyView2d, CAMERA_FOV, CAMERA_TILT, type CameraAngle, finishAngle, groundQuad } from './cameraRig';
 import { ConfettiMeshes } from './confettiMeshes';
 import { DebugPlane } from './debugPlane';
 import { FloorPlane } from './floorPlane';
@@ -89,8 +89,7 @@ export class ThreeWorldRenderer {
   private _ambient = new AmbientLight(0xffffff, 0.15);
   private _composer: EffectComposer | null = null;
   private _bloom: UnrealBloomPass | null = null;
-  private _bloomEnabled = true;
-  private _tilt = CAMERA_TILT;
+  private _angle: CameraAngle = { tilt: CAMERA_TILT, yaw: 0 };
   /** 마지막으로 그린 화면의 네 모서리가 z = 0 평면에 닿는 점 (물리 좌표) */
   private _viewQuad: [number, number][] = [];
 
@@ -169,12 +168,9 @@ export class ThreeWorldRenderer {
     resize();
   }
 
-  /** 기울기, 그림자, 블룸 설정을 바로 반영한다 */
-  applySettings(settings: Settings) {
-    this._tilt = (settings.tilt * Math.PI) / 180;
-    this._sun.castShadow = settings.shadows;
-    this._bloomEnabled = settings.bloom;
-    if (this._bloom) this._bloom.enabled = settings.bloom;
+  /** 카메라가 맵을 보는 기본 각도. 다음 프레임부터 반영된다 */
+  setViewAngle(angle: ViewAngle) {
+    this._angle = { tilt: (angle.tilt * Math.PI) / 180, yaw: (angle.yaw * Math.PI) / 180 };
   }
 
   /** 마지막으로 그린 화면의 네 모서리가 구슬 평면에 닿는 점. 물리 좌표로 왼쪽 위부터 시계 방향이다 */
@@ -191,7 +187,7 @@ export class ThreeWorldRenderer {
 
     const { camera } = frame;
     const viewSize = this._viewSize;
-    const angle = finishAngle(camera.zoom, performance.now() / 1000, this._tilt);
+    const angle = finishAngle(camera.zoom, performance.now() / 1000, this._angle);
     applyView2d(this._camera, camera, viewSize.x, viewSize.y, angle);
     this._viewQuad = groundQuad(this._camera);
     this.followView(camera.x, camera.y, this._viewQuad);
@@ -236,7 +232,6 @@ export class ThreeWorldRenderer {
       this._composer.setSize(width, height);
       this._composer.addPass(new RenderPass(this._scene, this._camera));
       this._bloom = new UnrealBloomPass(new Vector2(width, height), 0.35, 0.3, 0.78);
-      this._bloom.enabled = this._bloomEnabled;
       this._composer.addPass(this._bloom);
       this._composer.addPass(new OutputPass());
     }

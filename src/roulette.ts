@@ -9,10 +9,10 @@ import { Marble } from './marble';
 import { Box2dPhysics } from './physics-box2d';
 import { ProgressMap } from './progressMap';
 import { ThreeWorldRenderer } from './render/three/threeWorldRenderer';
-import type { Settings } from './settings';
 import type { VectorLike } from './types/VectorLike';
 import { bound } from './utils/bound.decorator';
 import { limitMembers, shuffle } from './utils/utils';
+import type { ViewAngle } from './viewAngle';
 import { drawZoomZones, zoomZoneIntensity } from './zoomZone';
 
 /**
@@ -347,9 +347,14 @@ export class Roulette extends EventTarget {
     else this._lobby.clear();
   }
 
-  /** 기울기, 그림자, 블룸 설정을 화면에 바로 반영한다 */
-  public applySettings(settings: Settings) {
-    this._renderer.applySettings(settings);
+  /** 게임 화면 캔버스. 끌어서 카메라 각도를 바꾸는 데 쓴다 */
+  get canvas(): HTMLCanvasElement {
+    return this._renderer.canvas;
+  }
+
+  /** 카메라가 맵을 보는 기본 각도를 바꾼다 */
+  public setViewAngle(angle: ViewAngle) {
+    this._renderer.setViewAngle(angle);
   }
 
   /** 누르고 있는 동안처럼 잠깐 빠르게 돌린다 */
@@ -360,8 +365,9 @@ export class Roulette extends EventTarget {
   /** 카메라를 pos 로 옮기고 구슬을 따라가지 않게 한다. null 이면 다시 따라간다 (미니맵에서 맵을 훑어볼 때) */
   public lookAt(pos: VectorLike | null) {
     if (pos) {
-      this._camera.setPosition(pos, false);
+      // 잠그기 전 자리를 기억해야 하므로 먼저 잠근다
       this._camera.lock(true);
+      this._camera.setPosition(pos, false);
     } else {
       this._camera.lock(false);
     }

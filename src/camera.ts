@@ -35,6 +35,8 @@ export class Camera {
   private _targetZoom: number = 1;
   private _locked = false;
   private _shouldFollowMarbles = false;
+  /** 잠그기 직전에 보고 있던 자리. 시작 전에 잠갔다 풀면 이리로 돌아간다 */
+  private _unlockedPosition: VectorLike | null = null;
   /** 카메라 구역 화면이 섞이는 정도 (0 ~ 1). 구역을 드나들 때 서서히 바뀐다 */
   private _zoneWeight = 0;
   /** 마지막으로 들어갔던 카메라 구역. 나온 뒤에도 _zoneWeight 가 0 이 될 때까지 쓴다 */
@@ -85,8 +87,16 @@ export class Camera {
     return (this._targetPosition = { x: v.x, y: v.y });
   }
 
+  /** 잠그면 구슬을 따라가지 않는다. 구슬을 따라가기 전(시작 전) 에 잠갔다 풀면 잠그기 전 자리로 돌아간다 */
   lock(v: boolean) {
+    if (v === this._locked) return;
     this._locked = v;
+    if (v) {
+      this._unlockedPosition = { ...this._targetPosition };
+    } else if (!this._shouldFollowMarbles && this._unlockedPosition) {
+      this._targetPosition = this._unlockedPosition;
+    }
+    if (!v) this._unlockedPosition = null;
   }
 
   startFollowingMarbles() {
@@ -103,6 +113,8 @@ export class Camera {
     this._zoom = z;
     this._targetZoom = z;
     this._shouldFollowMarbles = false;
+    this._unlockedPosition = null;
+    this._locked = false;
     this._zoneWeight = 0;
     this._zone = null;
     this._focusWeight = 0;
