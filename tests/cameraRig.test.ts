@@ -1,7 +1,15 @@
 import { PerspectiveCamera, Vector3 } from 'three';
 import { expect, test } from 'vitest';
 import { initialZoom } from '../src/data/constants';
-import { applyView2d, CAMERA_FOV, CAMERA_TILT, finishAngle, groundQuad, MAX_TILT } from '../src/render/three/cameraRig';
+import {
+  applyView2d,
+  CAMERA_FOV,
+  CAMERA_TILT,
+  finishAngle,
+  groundQuad,
+  MAX_TILT,
+  viewZoom,
+} from '../src/render/three/cameraRig';
 
 const WIDTH = 800;
 const HEIGHT = 450;
@@ -50,21 +58,20 @@ test('옆으로 돌아가 봐도 보는 점은 화면 가운데에 남는다', (
   expect(camera.position.x).toBeGreaterThan(12);
 });
 
-test('결승 연출 각도는 줌인이 없으면 기본값이고 줌인이 깊을수록 더 기운다', () => {
-  expect(finishAngle(1, 3)).toEqual({ tilt: CAMERA_TILT, yaw: 0 });
-  expect(finishAngle(0.6, 3)).toEqual({ tilt: CAMERA_TILT, yaw: 0 });
+test('결승 연출 각도는 연출이 약하면 기본값이고 강할수록 더 기운다', () => {
+  expect(finishAngle(0, 3)).toEqual({ tilt: CAMERA_TILT, yaw: 0 });
+  expect(finishAngle(0.2, 3)).toEqual({ tilt: CAMERA_TILT, yaw: 0 });
 
-  const half = finishAngle(2.5, 0);
-  const full = finishAngle(4, 0);
+  const half = finishAngle(0.6, 0);
+  const full = finishAngle(1, 0);
   expect(half.tilt).toBeGreaterThan(CAMERA_TILT);
   expect(full.tilt).toBeGreaterThan(half.tilt);
-  expect(finishAngle(9, 0).tilt).toBe(full.tilt);
 });
 
 test('결승 연출의 추가 기울기는 기본 각도에 비례하고 한계를 넘지 않는다', () => {
   const deg = (d: number) => (d * Math.PI) / 180;
 
-  const at = (tilt: number) => finishAngle(4, 0, { tilt: deg(tilt), yaw: 0 }).tilt;
+  const at = (tilt: number) => finishAngle(1, 0, { tilt: deg(tilt), yaw: 0 }).tilt;
   expect(at(0)).toBe(0);
   expect(at(20)).toBeCloseTo(at(10) * 2);
   expect(at(-20)).toBeCloseTo(-at(20));
@@ -74,9 +81,9 @@ test('결승 연출의 추가 기울기는 기본 각도에 비례하고 한계�
 test('결승 연출의 좌우 흔들림은 사용자가 고른 좌우 각도를 중심으로 한다', () => {
   const base = { tilt: CAMERA_TILT, yaw: 0.3 };
 
-  expect(finishAngle(1, 5, base).yaw).toBe(0.3);
-  expect(finishAngle(4, 7 / 4, base).yaw).toBeGreaterThan(0.3);
-  expect(finishAngle(4, (7 * 3) / 4, base).yaw).toBeLessThan(0.3);
+  expect(finishAngle(0, 5, base).yaw).toBe(0.3);
+  expect(finishAngle(1, 7 / 4, base).yaw).toBeGreaterThan(0.3);
+  expect(finishAngle(1, (7 * 3) / 4, base).yaw).toBeLessThan(0.3);
 });
 
 test('기울이지 않으면 화면이 평면에 닿는 범위는 2D 와 같은 직사각형이다', () => {
@@ -109,4 +116,19 @@ test('기울여 보면 카메라에서 먼 화면 아래쪽이 더 넓고 더 �
   const [, , flatBr] = groundQuad(flat);
   expect(br[0] - bl[0]).toBeGreaterThan(tr[0] - tl[0]);
   expect(br[1]).toBeGreaterThan(flatBr[1]);
+});
+
+test('사용자 배율은 평소에는 그대로 곱하고, 결승 연출이 끝까지 걸리면 1 로 돌아간다', () => {
+  expect(viewZoom(1, 2, 0)).toBe(2);
+  expect(viewZoom(0.8, 0.5, 0)).toBe(0.4);
+  expect(viewZoom(4, 2, 1)).toBe(4);
+  expect(viewZoom(4, 0.5, 1)).toBe(4);
+  const middle = viewZoom(2.5, 2, 0.6);
+  expect(middle).toBeGreaterThan(2.5);
+  expect(middle).toBeLessThan(5);
+});
+
+test('시작 전에 구슬을 비추려고 줌인해 있어도 결승 연출이 없으면 사용자 배율이 그대로 먹는다', () => {
+  expect(viewZoom(3, 2, 0)).toBe(6);
+  expect(finishAngle(0, 0)).toEqual({ tilt: CAMERA_TILT, yaw: 0 });
 });

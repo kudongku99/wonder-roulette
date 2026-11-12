@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 구슬을 떨어뜨려 추첨하는 2D 게임 [lazygyu/roulette](https://github.com/lazygyu/roulette) 을 3D 로 리팩터링하는 프로젝트다. 원본 소스는 `../roulette/` 에 클론돼 있으며 **참조 전용이고 수정하지 않는다.** 원본 구조에 대한 상세 설명은 `../CLAUDE.md` 에 있다.
 
-현재 상태: 10단계(맵 시각 개선과 카메라 각도)까지 끝났다. 6단계부터는 원본과의 기능 동등성을 내려놓고 3D 전용 추첨 게임으로 다시 짜는 중이다. 남은 것은 11단계(성능 측정, 실제 기기 확인, 배포 구성)다. 단계별 계획과 바뀐 결정은 `docs/roadmap.md` 에 있다.
+현재 상태: 10단계(맵 시각 개선과 카메라 시점)까지 끝났다. 6단계부터는 원본과의 기능 동등성을 내려놓고 3D 전용 추첨 게임으로 다시 짜는 중이다. 남은 것은 11단계(성능 측정, 실제 기기 확인, 배포 구성)다. 단계별 계획과 바뀐 결정은 `docs/roadmap.md` 에 있다.
 
 ## 명령어
 
@@ -51,12 +51,15 @@ pnpm simulate goals 6,16,30   # 골인 시각 전체를 JSON 으로 출력
 - `Roulette.setLobby(목록 | null)` 이 로비 모드를 켜고 끈다. 켜져 있는 동안 게임 물리는 멈춰 있다.
 - 가로로 넓은 화면에서는 이름 입력 카드가 왼쪽, 박스가 오른쪽에 온다. 그 기준 비율은 `lobbyBox.ts` 의 `WIDE_ASPECT` 와 `ui.scss` 의 미디어 쿼리 두 곳에 있으니 같이 고친다.
 
-## 맵 바닥과 카메라 각도
+## 맵 바닥과 카메라 시점
 
 - 맵 안팎은 `ProgressMap.reachableFrom(출발점)` 으로 나눈다. 구슬 출발 자리에서 벽을 피해 아래·옆으로, 올라가는 구역에서만 위로 퍼진 칸이 안쪽이다. 결승선 아래에서는 퍼지지 않는다(맵 둘레 여백으로 새지 않게).
 - `src/render/stageFloor.ts` 의 `paintFloor` 가 이 칸으로 바닥 그림을 만든다. 3D 바닥(`FloorPlane`)과 맵 선택 썸네일이 같이 쓰고 색만 다르다. 바깥 색은 3D 배경판과 같아야 경계가 안 보인다. 로비 박스처럼 맵 목록에 없는 무대는 `WorldFrame.floor = false` 로 바닥을 깔지 않는다.
-- 환경설정 화면은 없다. 카메라 각도는 게임 화면을 끌어서 바꾼다(`src/ui/viewDrag.ts`). 위아래로 끌면 기울기(−30° ~ 30°, 기본 17°), 좌우로 끌면 옆으로 도는 각도(−30° ~ 30°, 기본 0°)이고, 두 번 누르면 기본값으로 돌아간다. 끄는 방향과 감도 계산은 DOM 없는 `dragViewAngle`(`src/viewAngle.ts`)에 있다.
-- `ViewAngleStore` 가 각도를 들고 있다가 바뀌면 `Roulette.setViewAngle` → 렌더러로 넘긴다. 끄는 동안에는 저장하지 않고 손을 뗄 때 한 번 저장한다.
+- 환경설정 화면은 없다. 카메라 시점은 게임 화면에서 직접 바꾼다(`src/ui/viewControls.ts`). 위아래로 끌면 기울기(−30° ~ 30°, 기본 17°), 좌우로 끌면 옆으로 도는 각도(−30° ~ 30°, 기본 0°), 휠·트랙패드 핀치·두 손가락 핀치로 배율(0.5 ~ 2.5배, 기본 1배)을 바꾸고, 두 번 누르면 모두 기본값으로 돌아간다. 값 계산(범위, 끄는 방향, 감도)은 DOM 없는 `src/cameraView.ts` 에 있다.
+- `CameraViewStore` 가 시점을 들고 있다가 바뀌면 `Roulette.setCameraView` → 렌더러로 넘긴다. 끌기·핀치는 손을 뗄 때, 휠은 멈춘 뒤 잠시 지나 저장한다. 캔버스의 휠은 기본 동작(페이지 확대)을 막는다.
+- 사용자 배율은 카메라 추적 로직에 넣지 않고 그린 결과에만 곱한다(`viewZoom`). 추적이 매 프레임 줌을 다시 정하므로 넣으면 덮어써진다. 확대는 화면 가운데 기준이다.
+- 결승 연출의 정도는 2D 카메라의 줌이 아니라 `Camera.finish`(연출 강도를 줌처럼 서서히 따라간 값)로 판단한다. 시작 전에도 구슬을 비추려고 줌인하므로 줌으로는 구분이 안 된다. 연출이 깊어질수록 사용자 배율은 1배로 돌아가 결승 장면은 같은 크기로 보인다.
+- 로비 박스처럼 시점을 바꿀 수 없는 화면은 `WorldFrame.fixedView` 로 기본 시점을 쓴다.
 - 그림자와 블룸은 항상 켜져 있다. 끄는 설정은 없앴고, 저사양 대응은 11단계에서 성능을 재고 정한다.
 - 결승 연출로 더 기우는 각도는 기본 기울기에 비례한다(`finishAngle` 의 세 번째 인자). 좌우로 천천히 도는 흔들림은 사용자가 고른 좌우 각도를 중심으로 한다. 기본이 0 이면 더 기울지 않고, 음수면 그쪽으로 더 기운다. 합계는 ±60도(`MAX_TILT`)로 자른다.
 - 미니맵에 마우스를 올리면 카메라가 그곳으로 간다(`Camera.lock`). 시작 전(구슬을 따라가기 전)에는 마우스가 벗어나면 잠그기 전 자리로 돌아오고, 진행 중에는 다시 구슬을 따라간다.
@@ -93,7 +96,7 @@ pnpm simulate goals 6,16,30   # 골인 시각 전체를 JSON 으로 출력
 - 장애물 재질에는 항상 자체 발광이 들어가고 `EffectComposer` 로 블룸을 건다. 밝기 값들은 화면을 보며 맞춘 것이라, 바꿀 때는 화면으로 확인한다.
 - 골인 축하 효과(`ConfettiMeshes`)는 시드와 경과 시간만으로 조각 위치를 계산해 프레임 사이 상태가 없다.
 - 디버그 그림은 `DebugPlane` 이 2D 캔버스에 한 번 그려 장애물 뒤쪽 평면의 텍스처로 쓴다. `WorldDebugDraw` 는 월드 좌표로 그리는 2D 함수 그대로다.
-- WebGL 이 필요한 `ThreeWorldRenderer` 자체는 테스트하지 않는다. GL 없이 돌아가는 `cameraRig`, `StageMeshes`, `MarbleMeshes`, `ConfettiMeshes`, `projectMarble` 을 단위 테스트한다. HUD 와 UI 는 DOM 이 필요 없는 부분(`rankRows`, `nameList`, `ScreenMachine`, `i18n`, `stageRangeX`)만 테스트한다. `LobbyBox` 는 가짜 `IPhysics` 를 넣어 테스트한다. 맵 안쪽 칸(`reachableFrom`), 화면 사다리꼴(`groundQuad`), 각도 읽기와 끌기(`parseViewAngle`, `dragViewAngle`), 미니맵 미리보기 뒤 카메라 복귀(`Camera.lock`)도 DOM 없이 테스트한다. 테스트 환경에 DOM 이 없으므로 규칙은 DOM 을 만지는 클래스 밖에 둔다. `DebugPlane` 은 DOM 캔버스가 필요해 테스트가 없다. 화면은 개발 서버에서 직접 확인한다.
+- WebGL 이 필요한 `ThreeWorldRenderer` 자체는 테스트하지 않는다. GL 없이 돌아가는 `cameraRig`, `StageMeshes`, `MarbleMeshes`, `ConfettiMeshes`, `projectMarble` 을 단위 테스트한다. HUD 와 UI 는 DOM 이 필요 없는 부분(`rankRows`, `nameList`, `ScreenMachine`, `i18n`, `stageRangeX`)만 테스트한다. `LobbyBox` 는 가짜 `IPhysics` 를 넣어 테스트한다. 맵 안쪽 칸(`reachableFrom`), 화면 사다리꼴(`groundQuad`), 시점 읽기와 끌기·배율(`parseCameraView`, `dragCameraView`, `zoomCameraView`), 미니맵 미리보기 뒤 카메라 복귀(`Camera.lock`), 사용자 배율과 결승 연출(`viewZoom`, `finishAngle`)도 DOM 없이 테스트한다. 테스트 환경에 DOM 이 없으므로 규칙은 DOM 을 만지는 클래스 밖에 둔다. `DebugPlane` 은 DOM 캔버스가 필요해 테스트가 없다. 화면은 개발 서버에서 직접 확인한다.
 
 ## 원본과 달라진 점
 

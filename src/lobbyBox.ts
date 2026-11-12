@@ -140,6 +140,7 @@ export class LobbyBox {
       marbles: this._marbles,
       bursts: [],
       floor: false,
+      fixedView: true,
     };
   }
 

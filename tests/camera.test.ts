@@ -43,3 +43,21 @@ test('구슬을 따라가는 중에는 놓은 자리에서 다시 구슬을 따�
   settle(camera);
   expect(camera.y).toBeCloseTo(80);
 });
+
+test('결승 연출 강도는 줌과 따로 서서히 따라가고, 시작 전 줌인은 연출로 치지 않는다', () => {
+  const camera = new Camera();
+  camera.initializePosition({ x: 12, y: 2 }, 3);
+  expect(camera.zoom).toBe(3);
+  expect(camera.finish).toBe(0);
+
+  camera.update({
+    marbles: [],
+    stage: { title: 't', goalY: 100, zoomY: 90 },
+    intensity: 1,
+    targetIndex: 0,
+    focusOnRival: false,
+    viewSize: { x: 20, y: 12 },
+  });
+  expect(camera.finish).toBeGreaterThan(0);
+  expect(camera.finish).toBeLessThan(1);
+});

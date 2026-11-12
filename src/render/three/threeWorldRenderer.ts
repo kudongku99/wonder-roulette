@@ -21,12 +21,12 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { type CameraView, DEFAULT_CAMERA_VIEW } from '../../cameraView';
 import { canvasHeight, canvasWidth, theme } from '../../data/constants';
 import type { Marble } from '../../marble';
 import type { VectorLike } from '../../types/VectorLike';
-import type { ViewAngle } from '../../viewAngle';
 import type { WorldDebugDraw, WorldFrame } from '../worldFrame';
-import { applyView2d, CAMERA_FOV, CAMERA_TILT, type CameraAngle, finishAngle, groundQuad } from './cameraRig';
+import { applyView2d, CAMERA_FOV, type CameraAngle, finishAngle, groundQuad, viewZoom } from './cameraRig';
 import { ConfettiMeshes } from './confettiMeshes';
 import { DebugPlane } from './debugPlane';
 import { FloorPlane } from './floorPlane';
@@ -64,6 +64,10 @@ function createMarblePattern(): CanvasTexture {
   return texture;
 }
 
+function toRadians(view: CameraView) {
+  return { tilt: (view.tilt * Math.PI) / 180, yaw: (view.yaw * Math.PI) / 180, zoom: view.zoom };
+}
+
 /**
  * Three.js 로 월드(배경, 장애물, 구슬, 축하 효과) 를 그린다. 화면에 붙는 캔버스는 이 WebGL 캔버스 하나다.
  * 물리 좌표(y 가 아래로 증가) 에서 Three.js 좌표(y 가 위) 로의 변환은 _world 그룹의 y 반전과
@@ -89,7 +93,8 @@ export class ThreeWorldRenderer {
   private _ambient = new AmbientLight(0xffffff, 0.15);
   private _composer: EffectComposer | null = null;
   private _bloom: UnrealBloomPass | null = null;
-  private _angle: CameraAngle = { tilt: CAMERA_TILT, yaw: 0 };
+  /** 사용자가 고른 시점 (각도는 라디안) */
+  private _view: CameraAngle & { zoom: number } = toRadians(DEFAULT_CAMERA_VIEW);
   /** 마지막으로 그린 화면의 네 모서리가 z = 0 평면에 닿는 점 (물리 좌표) */
   private _viewQuad: [number, number][] = [];
 
@@ -168,9 +173,9 @@ export class ThreeWorldRenderer {
     resize();
   }
 
-  /** 카메라가 맵을 보는 기본 각도. 다음 프레임부터 반영된다 */
-  setViewAngle(angle: ViewAngle) {
-    this._angle = { tilt: (angle.tilt * Math.PI) / 180, yaw: (angle.yaw * Math.PI) / 180 };
+  /** 사용자가 고른 시점(각도, 배율). 다음 프레임부터 반영된다 */
+  setCameraView(view: CameraView) {
+    this._view = toRadians(view);
   }
 
   /** 마지막으로 그린 화면의 네 모서리가 구슬 평면에 닿는 점. 물리 좌표로 왼쪽 위부터 시계 방향이다 */
@@ -187,8 +192,12 @@ export class ThreeWorldRenderer {
 
     const { camera } = frame;
     const viewSize = this._viewSize;
-    const angle = finishAngle(camera.zoom, performance.now() / 1000, this._angle);
-    applyView2d(this._camera, camera, viewSize.x, viewSize.y, angle);
+    // 로비처럼 맵 목록에 없는 무대는 사용자 시점 대신 기본 시점으로 본다
+    const view = frame.fixedView ? toRadians(DEFAULT_CAMERA_VIEW) : this._view;
+    const finish = camera.finish ?? 0;
+    const angle = finishAngle(finish, performance.now() / 1000, view);
+    const zoomed = { x: camera.x, y: camera.y, zoom: viewZoom(camera.zoom, view.zoom, finish) };
+    applyView2d(this._camera, zoomed, viewSize.x, viewSize.y, angle);
     this._viewQuad = groundQuad(this._camera);
     this.followView(camera.x, camera.y, this._viewQuad);
 

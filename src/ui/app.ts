@@ -1,14 +1,14 @@
+import { CameraViewStore } from '../cameraView';
 import { stages } from '../data/maps';
 import { Hud } from '../hud/hud';
 import type { Roulette } from '../roulette';
-import { ViewAngleStore } from '../viewAngle';
 import { GameControls } from './gameControls';
 import { Lobby } from './lobby';
 import { MapSelect } from './mapSelect';
 import { toEntryStrings } from './nameList';
 import { type Screen, ScreenMachine } from './screenMachine';
 import { loadMapIndex, loadNames, saveMapIndex, saveNames } from './storage';
-import { attachViewDrag } from './viewDrag';
+import { attachViewControls } from './viewControls';
 
 /**
  * 화면 흐름: 로비 → 맵 선택 → 게임 화면 → 진행 → 결과.
@@ -57,9 +57,9 @@ export function startApp(root: HTMLElement, roulette: Roulette) {
       machine.go('lobby');
     },
   });
-  const viewAngle = new ViewAngleStore();
-  viewAngle.subscribe((angle) => roulette.setViewAngle(angle));
-  attachViewDrag(roulette.canvas, viewAngle);
+  const cameraView = new CameraViewStore();
+  cameraView.subscribe((view) => roulette.setCameraView(view));
+  attachViewControls(roulette.canvas, cameraView);
   root.append(lobby.node, mapSelect.node, controls.node);
 
   roulette.onFrame((frame) => hud.update(frame));

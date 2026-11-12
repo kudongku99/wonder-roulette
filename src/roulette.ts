@@ -1,4 +1,5 @@
 import { Camera } from './camera';
+import type { CameraView } from './cameraView';
 import { canvasHeight, canvasWidth, initialZoom, zoomThreshold } from './data/constants';
 import { type StageDef, stages } from './data/maps';
 import { GoalBurst } from './goalBurst';
@@ -12,7 +13,6 @@ import { ThreeWorldRenderer } from './render/three/threeWorldRenderer';
 import type { VectorLike } from './types/VectorLike';
 import { bound } from './utils/bound.decorator';
 import { limitMembers, shuffle } from './utils/utils';
-import type { ViewAngle } from './viewAngle';
 import { drawZoomZones, zoomZoneIntensity } from './zoomZone';
 
 /**
@@ -347,14 +347,14 @@ export class Roulette extends EventTarget {
     else this._lobby.clear();
   }
 
-  /** 게임 화면 캔버스. 끌어서 카메라 각도를 바꾸는 데 쓴다 */
+  /** 게임 화면 캔버스. 끌고 굴려서 카메라 시점을 바꾸는 데 쓴다 */
   get canvas(): HTMLCanvasElement {
     return this._renderer.canvas;
   }
 
-  /** 카메라가 맵을 보는 기본 각도를 바꾼다 */
-  public setViewAngle(angle: ViewAngle) {
-    this._renderer.setViewAngle(angle);
+  /** 사용자가 고른 카메라 시점(각도, 배율) 을 반영한다 */
+  public setCameraView(view: CameraView) {
+    this._renderer.setCameraView(view);
   }
 
   /** 누르고 있는 동안처럼 잠깐 빠르게 돌린다 */

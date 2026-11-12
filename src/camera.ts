@@ -51,6 +51,13 @@ export class Camera {
   private _switchProgress = 1;
   /** 화면의 주인공이 경쟁 구슬인 정도 (0 ~ 1) */
   private _focusWeight = 0;
+  /** 결승 연출 강도를 줌처럼 서서히 따라간 값 (0 ~ 1) */
+  private _finish = 0;
+
+  /** 결승 연출(줌인·슬로모션) 이 걸린 정도 (0 ~ 1). 시작 전 구슬을 비추려고 줌인한 것과 구분된다 */
+  get finish() {
+    return this._finish;
+  }
 
   get zoom() {
     return this._zoom;
@@ -118,6 +125,7 @@ export class Camera {
     this._zoneWeight = 0;
     this._zone = null;
     this._focusWeight = 0;
+    this._finish = 0;
     this._shown = null;
     this._pending = null;
     this._pendingFrames = 0;
@@ -154,6 +162,7 @@ export class Camera {
 
     // interpolate zoom
     this._zoom = this._interpolation(this._zoom, this._targetZoom);
+    this._finish = this._interpolation(this._finish, intensity);
   }
 
   private _calcTargetPositionAndZoom(

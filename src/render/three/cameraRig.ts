@@ -11,25 +11,42 @@ export const MAX_TILT = (60 * Math.PI) / 180;
 /** 결승 연출 중 좌우로 도는 폭과 한 번 왕복하는 시간 (초) */
 const FINISH_YAW = 0.22;
 const FINISH_YAW_PERIOD = 7;
-/** 2D 카메라의 줌이 이 값일 때 결승 연출이 끝까지 걸린 것으로 본다 (Camera 가 연출 강도 × 4 까지 줌인한다) */
-const FINISH_ZOOM = 4;
+/** 결승 연출 강도가 이 값을 넘어야 기울기와 배율 복귀가 시작된다 (Camera 가 강도 × 4 로 줌인하므로 줌 1 에 해당한다) */
+const FINISH_START = 0.25;
 
 export type View2d = { x: number; y: number; zoom: number };
 export type CameraAngle = { tilt: number; yaw: number };
 
 /**
- * 결승 연출용 카메라 각도. 줌인이 깊어질수록 기본 기울기에 비례해 더 기울이고, 기본 좌우 각도를 중심으로 천천히 돈다.
+ * 3D 결승 연출이 걸린 정도 (0 ~ 1). Camera.finish(연출 강도) 가 FINISH_START 에서 1 로 갈수록 시작과 끝이 완만하게 커진다.
+ * 줌으로 판단하지 않는 것은 시작 전에도 구슬을 비추려고 줌인하기 때문이다
+ */
+export function finishProgress(finish: number): number {
+  const t = Math.min(1, Math.max(0, (finish - FINISH_START) / (1 - FINISH_START)));
+  return t * t * (3 - 2 * t);
+}
+
+/**
+ * 화면에 쓸 줌. 카메라가 정한 줌에 사용자 배율을 곱하되, 결승 연출이 깊어질수록 배율을 1 로 되돌려
+ * 결승 장면은 사용자 배율과 상관없이 같은 크기로 보이게 한다
+ */
+export function viewZoom(autoZoom: number, userZoom: number, finish: number): number {
+  return autoZoom * (userZoom + (1 - userZoom) * finishProgress(finish));
+}
+
+/**
+ * 결승 연출용 카메라 각도. 연출이 깊어질수록 기본 기울기에 비례해 더 기울이고, 기본 좌우 각도를 중심으로 천천히 돈다.
  * 기본 기울기가 음수면(아래에서 올려다보면) 그쪽으로 더 기운다.
+ * @param finish 결승 연출 강도 (Camera.finish, 0 ~ 1)
  * @param seconds 흐르는 시간. 좌우로 도는 위치를 정한다
  * @param base 사용자가 고른 기본 각도 (라디안)
  */
 export function finishAngle(
-  zoom: number,
+  finish: number,
   seconds: number,
   base: CameraAngle = { tilt: CAMERA_TILT, yaw: 0 }
 ): CameraAngle {
-  const t = Math.min(1, Math.max(0, (zoom - 1) / (FINISH_ZOOM - 1)));
-  const ease = t * t * (3 - 2 * t);
+  const ease = finishProgress(finish);
   const tilt = base.tilt * (1 + FINISH_TILT_RATIO * ease);
   return {
     tilt: Math.max(-MAX_TILT, Math.min(MAX_TILT, tilt)),
