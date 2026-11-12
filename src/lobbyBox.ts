@@ -127,10 +127,14 @@ export class LobbyBox {
     this._marbles = this._marbles.filter((marble) => marble.leaving === null || marble.leaving > 0);
   }
 
-  /** @param viewSize 보이는 월드 범위의 기준이 되는 화면 크기 (renderer.viewSize) */
-  frame(viewSize: VectorLike, initialZoom: number): WorldFrame {
+  /**
+   * @param viewSize 보이는 월드 범위의 기준이 되는 화면 크기 (renderer.viewSize)
+   * @param userZoom 사용자가 고른 배율. 렌더러가 화면 가운데를 기준으로 곱하므로, 넓은 화면에서 박스를 오른쪽으로 미는 거리를
+   *   이 배율만큼 줄여 확대·축소해도 박스가 화면의 같은 자리에 머물게 한다
+   */
+  frame(viewSize: VectorLike, initialZoom: number, userZoom = 1): WorldFrame {
     const zoom = viewSize.y / initialZoom / (VIEW_BOTTOM - VIEW_TOP);
-    const visibleWidth = viewSize.x / (initialZoom * zoom);
+    const visibleWidth = viewSize.x / (initialZoom * zoom * userZoom);
     const centerX = (BOX.left + BOX.right) / 2;
     const wide = viewSize.x / viewSize.y > WIDE_ASPECT;
     return {
@@ -140,7 +144,6 @@ export class LobbyBox {
       marbles: this._marbles,
       bursts: [],
       floor: false,
-      fixedView: true,
     };
   }
 

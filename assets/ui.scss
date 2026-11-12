@@ -106,9 +106,11 @@
 
 // 화면이 가로로 넓으면 카드를 왼쪽에 두고 오른쪽에 구슬 박스가 보이게 한다.
 // 비율은 박스를 오른쪽으로 미는 기준(lobbyBox.ts 의 WIDE_ASPECT) 과 맞춘다
+// 카드 밖은 누르고 끌고 굴리는 입력이 뒤의 게임 화면(구슬 박스) 으로 가서 시점을 바꾼다
 .lobby {
   justify-content: center;
   background: rgba(3, 4, 12, 0.35);
+  pointer-events: none;
 }
 
 @media (min-aspect-ratio: 5 / 4) {
@@ -124,6 +126,7 @@
 }
 
 .lobby-card {
+  pointer-events: auto;
   display: flex;
   flex-direction: column;
   width: min(560px, 100%);

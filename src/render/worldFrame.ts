@@ -22,8 +22,6 @@ export type WorldFrame = {
   bursts: GoalBurst[];
   /** false 면 맵 안팎을 칠한 바닥을 깔지 않는다 (로비 박스처럼 맵 목록에 없는 무대) */
   floor?: boolean;
-  /** true 면 사용자가 고른 시점(각도, 배율) 대신 기본 시점으로 본다 (로비 박스처럼 시점을 바꿀 수 없는 화면) */
-  fixedView?: boolean;
 };
 
 /** 월드 좌표에 2D 로 덧그리는 디버그 그림 */

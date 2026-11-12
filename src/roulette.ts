@@ -68,6 +68,8 @@ export class Roulette extends EventTarget {
   private _lobby!: LobbyBox;
   /** 로비 화면이면 true. 게임 월드 대신 로비 박스를 돌리고 그린다 */
   private _inLobby = false;
+  /** 사용자가 고른 배율. 로비 박스가 확대·축소해도 화면의 같은 자리에 머물도록 넘긴다 */
+  private _userZoom = 1;
 
   /** 물리 엔진을 다 불러와 구슬과 맵을 다룰 수 있게 되면 끝난다 */
   readonly ready: Promise<void>;
@@ -100,7 +102,7 @@ export class Roulette extends EventTarget {
         this._lobby.step(this._updateInterval);
         this._elapsed -= this._updateInterval;
       }
-      this._renderer.render(this._lobby.frame(this._renderer.viewSize, initialZoom));
+      this._renderer.render(this._lobby.frame(this._renderer.viewSize, initialZoom, this._userZoom));
       window.requestAnimationFrame(this._update);
       return;
     }
@@ -354,6 +356,7 @@ export class Roulette extends EventTarget {
 
   /** 사용자가 고른 카메라 시점(각도, 배율) 을 반영한다 */
   public setCameraView(view: CameraView) {
+    this._userZoom = view.zoom;
     this._renderer.setCameraView(view);
   }
 

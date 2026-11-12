@@ -115,3 +115,18 @@ test('가로로 넓은 화면에서는 박스가 오른쪽에 오도록 카메�
   expect(tall.x).toBe(13);
   expect(wide.x).toBeLessThan(13);
 });
+
+test('넓은 화면에서 확대·축소해도 박스는 화면의 같은 자리에 머문다', () => {
+  const { physics } = fakePhysics();
+  const box = new LobbyBox(physics);
+  const view = { x: 800, y: 450 };
+  /** 박스 가운데(x = 13) 가 화면 가운데에서 몇 픽셀 떨어져 그려지는지. 렌더러는 줌에 사용자 배율을 곱해 그린다 */
+  const offset = (userZoom: number) => {
+    const { camera } = box.frame(view, 30, userZoom);
+    return (13 - camera.x) * 30 * camera.zoom * userZoom;
+  };
+
+  expect(offset(1)).toBeGreaterThan(0);
+  expect(offset(2)).toBeCloseTo(offset(1));
+  expect(offset(0.5)).toBeCloseTo(offset(1));
+});

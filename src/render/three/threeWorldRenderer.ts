@@ -192,8 +192,7 @@ export class ThreeWorldRenderer {
 
     const { camera } = frame;
     const viewSize = this._viewSize;
-    // 로비처럼 맵 목록에 없는 무대는 사용자 시점 대신 기본 시점으로 본다
-    const view = frame.fixedView ? toRadians(DEFAULT_CAMERA_VIEW) : this._view;
+    const view = this._view;
     const finish = camera.finish ?? 0;
     const angle = finishAngle(finish, performance.now() / 1000, view);
     const zoomed = { x: camera.x, y: camera.y, zoom: viewZoom(camera.zoom, view.zoom, finish) };
