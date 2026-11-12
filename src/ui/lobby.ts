@@ -31,7 +31,7 @@ export class Lobby {
   ) {
     const card = el('div', 'ui-panel lobby-card');
     const logo = el('h1', 'logo');
-    logo.append('ROULETTE ', el('span', 'logo-accent', '3D'));
+    logo.append(el('span', 'logo-accent', 'WONDER'), el('span', 'logo-main', 'ROULETTE'));
 
     const label = el('label', 'lobby-label', t('lobby.heading'));
     label.htmlFor = 'lobbyInput';

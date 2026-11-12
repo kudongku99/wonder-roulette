@@ -1,6 +1,6 @@
-# roulette-3d
+# Wonder Roulette
 
-구슬을 떨어뜨려 당첨자를 뽑는 추첨 게임의 3D 버전입니다.
+구슬을 떨어뜨려 당첨자를 뽑는 3D 추첨 게임입니다. 저장소 폴더 이름은 개발을 시작할 때 붙인 `roulette-3d` 그대로입니다.
 
 [Marble Roulette by lazygyu](https://github.com/lazygyu/roulette) 의 소스 코드를 기반으로 하며, 원본의 2D 캔버스 렌더링을 3D 로 바꾸는 리팩터링 프로젝트입니다. 원작자와는 관련이 없는 개인 프로젝트입니다.
 

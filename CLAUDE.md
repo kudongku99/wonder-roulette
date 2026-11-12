@@ -4,6 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 프로젝트
 
+서비스 이름은 **Wonder Roulette** 다(화면 로고, 타이틀, manifest, README, 패키지명 `wonder-roulette`). 폴더 이름 `roulette-3d` 와 브라우저 저장 키 접두사 `roulette3d:` 는 옛 이름 그대로 둔다. 저장 키를 바꾸면 사용자가 저장한 이름·맵·시점이 사라진다.
+
 구슬을 떨어뜨려 추첨하는 2D 게임 [lazygyu/roulette](https://github.com/lazygyu/roulette) 을 3D 로 리팩터링하는 프로젝트다. 원본 소스는 `../roulette/` 에 클론돼 있으며 **참조 전용이고 수정하지 않는다.** 원본 구조에 대한 상세 설명은 `../CLAUDE.md` 에 있다.
 
 현재 상태: 10단계(맵 시각 개선과 카메라 시점)까지 끝났다. 6단계부터는 원본과의 기능 동등성을 내려놓고 3D 전용 추첨 게임으로 다시 짜는 중이다. 남은 것은 11단계(성능 측정, 실제 기기 확인, 배포 구성)다. 단계별 계획과 바뀐 결정은 `docs/roadmap.md` 에 있다.

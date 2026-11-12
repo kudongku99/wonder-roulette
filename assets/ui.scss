@@ -131,18 +131,30 @@
   padding: 28px 28px 20px;
 }
 
+// 로고: 위에 작은 WONDER, 아래에 큰 ROULETTE 두 줄
 .logo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
   margin: 0 0 22px;
   color: #fff;
-  font: 400 44px/1 var(--font-display);
-  letter-spacing: 0.08em;
+  font: 400 48px/1 var(--font-display);
   text-align: center;
-  text-shadow: var(--glow-cyan);
 }
 
 .logo-accent {
+  // 글자 사이를 넓힌 만큼 마지막 글자 뒤에도 생기는 여백을 들여쓰기로 상쇄해 가운데를 맞춘다
+  padding-left: 0.42em;
   color: var(--color-magenta);
+  font-size: 0.42em;
+  letter-spacing: 0.42em;
   text-shadow: var(--glow-magenta);
+}
+
+.logo-main {
+  letter-spacing: 0.08em;
+  text-shadow: var(--glow-cyan);
 }
 
 .lobby-label {
@@ -393,7 +405,7 @@
 
 @media (max-width: 700px) {
   .logo {
-    font-size: 34px;
+    font-size: 38px;
   }
 
   .lobby-card {
