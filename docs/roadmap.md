@@ -256,7 +256,7 @@
 | 버전   | 내용                                         | 배포                                                     | 상태 |
 | ------ | -------------------------------------------- | -------------------------------------------------------- | ---- |
 | ver1   | 혼자 하는 3D 추첨 게임 (10단계까지)          | GitHub Pages. 소스는 `ver1` 브랜치에 보관                | 배포됨 |
-| ver2   | 초대방 (12~14단계)                           | 화면은 GitHub Pages 그대로, 방 서버는 Cloudflare Workers | 15단계 |
+| ver2   | 초대방 (12~14단계)                           | 화면은 GitHub Pages 그대로, 방 서버는 Cloudflare Workers | 배포됨 |
 | ver2.1 | 초대방 채팅, 자기 구슬 조종 (16~17단계)      | ver2 와 같은 자리에 덮어 올린다                          | 18단계 |
 
 화면의 주소(`https://kudongku99.github.io/wonder-roulette/`)는 하나뿐이라 ver2 를 올리면 ver1 화면은 내려간다. ver1 은 브랜치로 소스만 남기고, 다시 보려면 그 브랜치를 받아 직접 돌린다.
@@ -268,12 +268,12 @@
 - [x] ver1 보관: 지금 배포돼 있는 커밋(`49e5c9e`, GitHub Pages 배포 워크플로 추가)에서 `ver1` 브랜치를 만들어 원격에 올린다. 초대방 변경을 커밋하기 전에 한다
 - [x] 초대방 변경(12~14단계)을 `invite-room` 브랜치에 커밋한다. 아직 `main` 에 올리지는 않는다
 - [x] 배포판의 `ALLOWED_ORIGINS` 를 `https://kudongku99.github.io` 로 한다. `server/wrangler.jsonc` 에 적으면 로컬 개발 서버도 막히므로 `server:deploy` 스크립트가 `--var` 로 넘긴다
-- [ ] 방 서버 배포: `pnpm exec wrangler login` 뒤 `pnpm server:deploy` (Cloudflare 계정 로그인이 필요해 직접 한다)
-- [ ] GitHub 저장소 변수 `ROOM_SERVER_URL` 에 방 서버 주소를 넣는다
-- [ ] `invite-room` 을 `main` 에 합쳐 올려 Pages 를 다시 빌드한다. 초대방 버튼이 나타나는지 확인한다
+- [x] 방 서버 배포: `pnpm exec wrangler login` 뒤 `pnpm server:deploy`. 주소는 `https://wonder-roulette-rooms.kudongku.workers.dev`
+- [x] GitHub 저장소 변수 `ROOM_SERVER_URL` 에 방 서버 주소를 넣는다
+- [x] `invite-room` 을 `main` 에 합쳐 올려 Pages 를 다시 빌드한다. 초대방 버튼이 나타나는지 확인한다
 - [ ] 서로 다른 기기·네트워크에서 확인: 방 만들기, 링크 입장, 같은 경기와 같은 순위, 응원, 결과 링크, 강퇴. 휴대폰 데이터망도 한 번 넣는다
 - [ ] 방장이 경기 중에 완전히 끊겼을 때 30초 뒤 대기실로 돌아오는지 확인 (지금까지 규칙 테스트만 있다)
-- [ ] `ver2` 태그를 붙인다
+- [x] `ver2` 태그를 붙인다. 다른 기기 확인은 태그 뒤에 이어서 한다
 
 순서가 중요한 곳: 방 서버를 먼저 올리고 변수를 넣은 다음 `main` 에 올린다. 변수 없이 올리면 초대방 버튼이 없는 화면이 나간다(고장은 아니다).
 
