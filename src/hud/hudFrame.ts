@@ -24,4 +24,8 @@ export type HudFrame = {
   viewQuad: [number, number][];
   /** 화면에 보이는 구슬들. marbles 와 같은 순서다 */
   labels: MarbleLabel[];
+  /** 출발까지 남은 시간 (ms). 카운트다운이 없거나 출발했으면 null. 초대방에서 쓴다 */
+  countdown: number | null;
+  /** 초대방에서 받아 보는 중인데 방장 쪽 소식이 끊겼다 */
+  stalled: boolean;
 };

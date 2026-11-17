@@ -455,3 +455,263 @@
     transition: none;
   }
 }
+
+// 초대방 대기실. 자리와 바탕은 로비(.lobby) 와 같고 카드 안쪽만 다르다
+
+.lobby-invite {
+  align-self: center;
+  margin-top: var(--space-3);
+}
+
+.room-card {
+  gap: var(--space-2);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(41, 243, 255, 0.5) transparent;
+
+  .lobby-label,
+  .lobby-hint,
+  .lobby-notice {
+    margin: 0;
+  }
+
+  h3.lobby-label,
+  label.lobby-label {
+    margin-top: var(--space-2);
+  }
+}
+
+.room-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.room-code {
+  color: var(--color-magenta);
+  letter-spacing: 0.18em;
+  text-shadow: var(--glow-magenta);
+}
+
+.room-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+
+  .lobby-input {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+.room-link {
+  font-size: 14px;
+  color: var(--color-text-dim);
+}
+
+.room-members {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: var(--space-1);
+  max-height: 24vh;
+  margin: 0;
+  padding: var(--space-2);
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: var(--radius);
+  list-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(41, 243, 255, 0.5) transparent;
+}
+
+.room-member {
+  --chip-color: var(--color-text-dim);
+
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 28px;
+  color: var(--chip-color);
+  font: 600 15px/1.2 var(--font-body);
+
+  &.is-watching {
+    font-weight: 400;
+  }
+
+  &.is-away {
+    opacity: 0.45;
+  }
+}
+
+.room-member-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  background: var(--chip-color);
+  border-radius: 50%;
+
+  .is-watching > & {
+    background: none;
+    border: 1px solid var(--chip-color);
+  }
+}
+
+.room-badge {
+  flex: none;
+  padding: 2px 7px;
+  border: 1px solid var(--color-text-dim);
+  border-radius: 999px;
+  color: var(--color-text-dim);
+  font: 500 11px/1.3 var(--font-body);
+
+  &.is-host {
+    border-color: var(--color-gold);
+    color: var(--color-gold);
+  }
+}
+
+.room-map {
+  margin-top: var(--space-2);
+
+  .lobby-label {
+    flex: none;
+  }
+}
+
+.room-map-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font: 600 16px/1.3 var(--font-body);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.room-host-tools {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: var(--space-2);
+}
+
+.room-extras {
+  min-height: 48px;
+  max-height: 20vh;
+}
+
+.room-wait {
+  text-align: center;
+}
+
+.room-member-tools {
+  display: flex;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+
+.room-member-button {
+  padding: 3px 8px;
+  background: none;
+  border: 1px solid rgba(234, 246, 255, 0.3);
+  border-radius: 999px;
+  color: var(--color-text-dim);
+  font: 500 12px/1.3 var(--font-body);
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--color-text);
+    color: var(--color-text);
+    outline: none;
+  }
+}
+
+// 결과 링크로 들어왔을 때의 순위표
+
+.shared {
+  justify-content: center;
+}
+
+.shared-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  width: min(460px, 100%);
+  max-height: 100%;
+  padding: 28px 28px 20px;
+}
+
+.shared-message,
+.shared-meta {
+  margin: 0;
+  color: var(--color-text-dim);
+  font-size: 14px;
+  text-align: center;
+}
+
+.shared-winner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 100%;
+}
+
+.shared-winner-title {
+  color: var(--color-gold);
+  font: 400 18px/1 var(--font-display);
+  letter-spacing: 0.3em;
+  text-shadow: var(--glow-gold);
+}
+
+.shared-winner-name {
+  max-width: 100%;
+  overflow: hidden;
+  color: #fff;
+  font: 400 52px/1.2 var(--font-display);
+  text-overflow: ellipsis;
+  text-shadow: var(--glow-cyan);
+  white-space: nowrap;
+}
+
+.shared-list {
+  align-self: stretch;
+  min-height: 0;
+  margin: 0;
+  padding: var(--space-2);
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: var(--radius);
+  list-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(41, 243, 255, 0.5) transparent;
+}
+
+.shared-row {
+  display: flex;
+  gap: var(--space-3);
+  padding: 5px var(--space-2);
+  font: 600 16px/1.3 var(--font-body);
+
+  &:first-child {
+    color: var(--color-gold);
+  }
+}
+
+.shared-rank {
+  flex: none;
+  width: 3em;
+  color: var(--color-text-dim);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.shared-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

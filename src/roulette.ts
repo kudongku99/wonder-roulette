@@ -10,6 +10,9 @@ import { Marble } from './marble';
 import { Box2dPhysics } from './physics-box2d';
 import { ProgressMap } from './progressMap';
 import { ThreeWorldRenderer } from './render/three/threeWorldRenderer';
+import { RemoteGame } from './room/remoteGame';
+import { isTrackedEntity, round3, type Snapshot } from './room/snapshot';
+import type { EntityShape } from './types/MapEntity.type';
 import type { VectorLike } from './types/VectorLike';
 import { bound } from './utils/bound.decorator';
 import { limitMembers, shuffle } from './utils/utils';
@@ -23,6 +26,9 @@ const RANK_EMA_SEC = 0.4;
 const RANK_MARGIN = 0.25;
 /** 빨리 감기를 켰을 때의 배속 */
 const FAST_FORWARD_SPEED = 2;
+/** 초대방의 방장이 스냅샷을 보내는 간격 (ms). 모든 순위가 정해진 뒤에는 늦게 들어온 사람을 위해 가끔만 보낸다 */
+const BROADCAST_MS = 50;
+const BROADCAST_IDLE_MS = 500;
 
 export class Roulette extends EventTarget {
   private _marbles: Marble[] = [];
@@ -71,6 +77,22 @@ export class Roulette extends EventTarget {
   /** 사용자가 고른 배율. 로비 박스가 확대·축소해도 화면의 같은 자리에 머물도록 넘긴다 */
   private _userZoom = 1;
 
+  /** 이번 판의 모든 구슬. 자리가 구슬 id 다 */
+  private _roster: Marble[] = [];
+  /** 출발했는지. 초대방에서 받아 보는 쪽은 스냅샷으로 안다 */
+  private _started = false;
+  /** startAfter 로 잡아 둔 출발 시각 (performance.now 기준). 없으면 null */
+  private _startAt: number | null = null;
+  /** 초대방에서 받아 보는 중이면 방장의 스냅샷을 따라 그리는 객체. 이때는 물리를 돌리지 않는다 */
+  private _remote: RemoteGame | null = null;
+  private _remoteCountdown: number | null = null;
+  private _remoteStalled = false;
+  /** 초대방의 방장이면 스냅샷을 내보낼 곳 */
+  private _broadcast: { round: number; send: (snapshot: Snapshot) => void } | null = null;
+  private _lastBroadcast = 0;
+  /** 맵 데이터 안에서 장애물의 순번. 스냅샷에 장애물을 순번으로 싣는다 */
+  private _entityIndex = new Map<EntityShape, number>();
+
   /** 물리 엔진을 다 불러와 구슬과 맵을 다룰 수 있게 되면 끝난다 */
   readonly ready: Promise<void>;
 
@@ -107,6 +129,21 @@ export class Roulette extends EventTarget {
       return;
     }
 
+    if (this._remote) {
+      this._followRemote(currentTime - this._lastTime);
+      this._lastTime = currentTime;
+      this._updateCamera();
+      this._render();
+      window.requestAnimationFrame(this._update);
+      return;
+    }
+
+    if (this._startAt !== null && performance.now() >= this._startAt) {
+      this._startAt = null;
+      this.start();
+      this.dispatchEvent(new CustomEvent('started'));
+    }
+
     this._elapsed += (currentTime - this._lastTime) * this._speed * (this._fastForward ? FAST_FORWARD_SPEED : 1);
     if (this._elapsed > 100) {
       this._elapsed %= 100;
@@ -131,20 +168,94 @@ export class Roulette extends EventTarget {
       this._sortMarbles(simSeconds);
     }
 
-    if (this._stage) {
-      const cameraTargetIndex = this._winners.length > 0 ? this._targetIndex : 0;
-      this._camera.update({
-        marbles: this._marbles,
-        stage: this._stage,
-        intensity: this._zoomIntensity ?? Math.max(0, 1 - this._goalDist / zoomThreshold),
-        targetIndex: cameraTargetIndex,
-        focusOnRival: cameraTargetIndex === this._targetIndex && this._focusOnRival,
-        viewSize: { x: this._renderer.viewSize.x / initialZoom, y: this._renderer.viewSize.y / initialZoom },
-      });
-    }
-
+    this._updateCamera();
     this._render();
+    this._sendSnapshot();
     window.requestAnimationFrame(this._update);
+  }
+
+  /** 결승 연출 강도 (0 ~ 1). 연출 구역이 있는 맵은 구역 강도, 없으면 zoomY 와의 거리로 정한다 */
+  private get _intensity() {
+    return this._zoomIntensity ?? Math.max(0, 1 - this._goalDist / zoomThreshold);
+  }
+
+  private _updateCamera() {
+    if (!this._stage) return;
+    const cameraTargetIndex = this._winners.length > 0 ? this._targetIndex : 0;
+    this._camera.update({
+      marbles: this._marbles,
+      stage: this._stage,
+      intensity: this._intensity,
+      targetIndex: cameraTargetIndex,
+      focusOnRival: cameraTargetIndex === this._targetIndex && this._focusOnRival,
+      viewSize: { x: this._renderer.viewSize.x / initialZoom, y: this._renderer.viewSize.y / initialZoom },
+    });
+  }
+
+  /**
+   * 초대방에서 받아 보는 쪽의 한 프레임. 방장의 스냅샷에서 구슬 자리, 순위, 골인, 연출 값을 가져온다.
+   * 카메라는 그 값으로 이 화면 크기에 맞게 따로 움직인다
+   * @param deltaTime 지난 프레임에서 흐른 시간 (ms)
+   */
+  private _followRemote(deltaTime: number) {
+    this._updateEffects(deltaTime);
+    const view = this._remote?.sample(performance.now());
+    if (!view) return;
+    this._remoteCountdown = view.countdown;
+    this._remoteStalled = view.stalled;
+    if (view.countdown === null && !this._started) {
+      this._started = true;
+      this._isRunning = true;
+      this._camera.startFollowingMarbles();
+      this.dispatchEvent(new CustomEvent('started'));
+    }
+    const pick = (ids: number[]) => ids.flatMap((id) => (this._roster[id] ? [this._roster[id]] : []));
+    this._marbles = pick(view.order);
+    this._winners = pick(view.winners);
+    this._zoomIntensity = view.intensity;
+    this._focusOnRival = view.focusOnRival;
+
+    if (!this._winner && this._winners.length > 0) {
+      this._winner = this._winners[0];
+      this._bursts.push(new GoalBurst(this._winner.x, this._winner.y, this._winner.hue));
+      this.dispatchEvent(new CustomEvent('winner', { detail: { winner: this._winner.name } }));
+    }
+    if (view.finished && !this._finished) {
+      this._isRunning = false;
+      this._finished = true;
+      this.dispatchEvent(new CustomEvent('finish'));
+    }
+  }
+
+  /** 초대방의 방장이면 지금 모습을 스냅샷으로 내보낸다 */
+  private _sendSnapshot() {
+    if (!this._broadcast || !this._stage) return;
+    const now = performance.now();
+    if (now - this._lastBroadcast < (this._finished ? BROADCAST_IDLE_MS : BROADCAST_MS)) return;
+    this._lastBroadcast = now;
+
+    const stage = this._stage;
+    const m: number[] = [];
+    for (const marble of this._marbles) {
+      const { x, y, angle } = marble.position;
+      m.push(marble.id, round3(x), round3(y), round3(angle));
+    }
+    const e: number[] = [];
+    for (const entity of this.physics.getEntities()) {
+      const index = this._entityIndex.get(entity.shape);
+      if (index !== undefined && isTrackedEntity(stage, index)) e.push(index, round3(entity.angle));
+    }
+    this._broadcast.send({
+      r: this._broadcast.round,
+      t: Math.round(now),
+      c: this._started ? null : Math.max(0, Math.round((this._startAt ?? now) - now)),
+      m,
+      w: this._winners.map((marble) => marble.id),
+      e,
+      i: round3(this._intensity),
+      f: this._focusOnRival,
+      x: this._finished,
+    });
   }
 
   /**
@@ -301,7 +412,7 @@ export class Roulette extends EventTarget {
 
   private _render() {
     if (!this._stage) return;
-    const entities = this.physics.getEntities();
+    const entities = (this._remote ?? this.physics).getEntities();
     this._renderer.render({
       camera: this._camera,
       stage: this._stage,
@@ -326,6 +437,12 @@ export class Roulette extends EventTarget {
       camera: this._camera,
       viewQuad: this._renderer.viewQuad,
       labels,
+      countdown: this._remote
+        ? this._remoteCountdown
+        : this._startAt === null
+          ? null
+          : Math.max(0, this._startAt - performance.now()),
+      stalled: this._remoteStalled,
     };
     for (const listener of this._frameListeners) listener(frame);
   }
@@ -382,6 +499,7 @@ export class Roulette extends EventTarget {
     }
 
     this.physics.createStage(this._stage);
+    this._entityIndex = new Map(this._stage.entities?.map((entity, index) => [entity.shape, index]));
     this._camera.initializePosition();
   }
 
@@ -394,7 +512,50 @@ export class Roulette extends EventTarget {
     this._marbles = [];
   }
 
+  /** ms 뒤에 출발한다. 출발하면 'started' 이벤트를 낸다. 그때까지 HudFrame.countdown 이 남은 시간을 알린다 */
+  public startAfter(ms: number) {
+    this._startAt = performance.now() + ms;
+  }
+
+  /**
+   * 초대방의 방장이 되어 스냅샷을 send 로 내보낸다. null 이면 그만둔다.
+   * @param round 스냅샷에 실을 판 번호
+   */
+  public setBroadcast(round: number, send: ((snapshot: Snapshot) => void) | null) {
+    this._broadcast = send ? { round, send } : null;
+    this._lastBroadcast = 0;
+  }
+
+  /** 지금의 순위를 구슬 id 로. 골인한 구슬이 골인한 순서로 먼저 오고, 달리는 구슬이 진행 순위대로 뒤따른다 */
+  get ranking(): number[] {
+    return [...this._winners, ...this._marbles].map((marble) => marble.id);
+  }
+
+  /** 이번 판 구슬의 이름. 자리가 구슬 id 다. 초대방에서 받아 보는 쪽이 같은 구슬을 만드는 데 쓴다 */
+  get roster(): string[] {
+    return this._roster.map((marble) => marble.name);
+  }
+
+  /**
+   * 초대방에서 방장의 경기를 받아 본다. 구슬을 names 대로 만들고(자리가 구슬 id) 물리 대신 스냅샷을 따라 그린다.
+   * setMarbles 나 reset 을 부르면 끝난다
+   */
+  public watch(names: string[]) {
+    this.reset();
+    const remote = new RemoteGame(this._stage!);
+    this._remote = remote;
+    names.forEach((name, id) => this._roster.push(new Marble(remote, id, names.length, name)));
+    this._marbles = [...this._roster];
+    this._frameSpawn(names.length);
+  }
+
+  /** 방장이 보낸 스냅샷. watch 중이 아니면 버린다 */
+  public pushSnapshot(snapshot: Snapshot) {
+    this._remote?.push(snapshot, performance.now());
+  }
+
   public start() {
+    this._started = true;
     this._isRunning = true;
     this._camera.startFollowingMarbles();
     this.physics.start();
@@ -425,11 +586,17 @@ export class Roulette extends EventTarget {
     members.forEach((member) => {
       for (let j = 0; j < member.count; j++) {
         const order = orders.pop() || 0;
-        this._marbles.push(new Marble(this.physics, order, totalCount, member.name));
+        const marble = new Marble(this.physics, order, totalCount, member.name);
+        this._marbles.push(marble);
+        this._roster[order] = marble;
       }
     });
+    this._frameSpawn(totalCount);
+    return rejected;
+  }
 
-    // 카메라를 구슬 생성 위치 중앙으로 이동 + 줌인
+  /** 카메라를 구슬 생성 위치 중앙으로 이동 + 줌인 */
+  private _frameSpawn(totalCount: number) {
     if (totalCount > 0) {
       const cols = Math.min(totalCount, 10);
       const rows = Math.ceil(totalCount / 10);
@@ -449,7 +616,6 @@ export class Roulette extends EventTarget {
 
       this._camera.initializePosition({ x: centerX, y: centerY }, zoom);
     }
-    return rejected;
   }
 
   private _clearMap() {
@@ -469,6 +635,12 @@ export class Roulette extends EventTarget {
     this._finished = false;
     this._bursts = [];
     this._rankKeys.clear();
+    this._roster = [];
+    this._started = false;
+    this._startAt = null;
+    this._remote = null;
+    this._remoteCountdown = null;
+    this._remoteStalled = false;
   }
 
   /** 맵을 바꾼다. 구슬은 비워지므로 setMarbles 로 다시 채운다 */

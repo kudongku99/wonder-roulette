@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 구슬을 떨어뜨려 추첨하는 2D 게임 [lazygyu/roulette](https://github.com/lazygyu/roulette) 을 3D 로 리팩터링하는 프로젝트다. 원본 소스는 `../roulette/` 에 클론돼 있으며 **참조 전용이고 수정하지 않는다.** 원본 구조에 대한 상세 설명은 `../CLAUDE.md` 에 있다.
 
-현재 상태: 10단계(맵 시각 개선과 카메라 시점)까지 끝났다. 6단계부터는 원본과의 기능 동등성을 내려놓고 3D 전용 추첨 게임으로 다시 짜는 중이다. 남은 것은 11단계(성능 측정, 실제 기기 확인, 배포 구성)다. 단계별 계획과 바뀐 결정은 `docs/roadmap.md` 에 있다.
+현재 상태: 10단계(맵 시각 개선과 카메라 시점)와 12~14단계(초대방)의 코드가 끝났다. 6단계부터는 원본과의 기능 동등성을 내려놓고 3D 전용 추첨 게임으로 다시 짜는 중이다. 남은 것은 11단계(성능 측정, 실제 기기 확인), 15단계(ver2 배포: ver1 을 브랜치로 보관하고 방 서버를 Cloudflare 에 올린다. 계정 로그인은 사용자가 직접 한다), 16~18단계(초대방 채팅과 구슬 조종을 넣어 ver2.1 로 올린다)다. 단계별 계획과 바뀐 결정은 `docs/roadmap.md` 에 있다.
 
 ## 명령어
 
@@ -18,14 +18,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 pnpm install
 pnpm dev                 # Vite 개발 서버, http://localhost:1236
 pnpm build               # 타입 검사 후 dist/ 에 빌드
-pnpm typecheck           # tsc --noEmit
-pnpm lint                # biome check --fix (src, scripts, tests)
+pnpm typecheck           # tsc --noEmit (앱), 이어서 server/ 를 Workers 타입으로 한 번 더
+pnpm lint                # biome check --fix (src, scripts, tests, server)
 pnpm test                # vitest run
 pnpm vitest run tests/simulate.test.ts      # 테스트 파일 하나만
 pnpm vitest run -t 'parseName'              # 이름으로 테스트 하나만
 pnpm simulate bench 6,16,30   # 렌더링 없이 물리만 돌려 맵별 골인 시각 분포 출력
 pnpm simulate stuck 6,16,30   # 정지 판정 문턱 비교
 pnpm simulate goals 6,16,30   # 골인 시각 전체를 JSON 으로 출력
+pnpm server:dev          # 초대방 서버(wrangler dev), http://localhost:8787
+pnpm server:deploy       # 초대방 서버를 Cloudflare 에 배포 (계정 로그인 필요)
 ```
 
 `tests/simulate.test.ts` 가 물리 시뮬레이션 회귀 테스트다. `tests/fixtures/simulate-goals.json` 은 **원본 코드**(lazygyu/roulette `e9a9d22`)로 뽑은 골인 시각이며, 이 프로젝트의 물리와 맵이 같은 값을 내는지 비교한다. 테스트가 깨졌다고 이 프로젝트의 출력으로 기준 파일을 다시 만들면 안 된다. 물리나 맵 데이터를 의도적으로 바꾼 경우에만, 사용자 확인을 받고 갱신한다.
@@ -35,8 +37,9 @@ pnpm simulate goals 6,16,30   # 골인 시각 전체를 JSON 으로 출력
 - GitHub Pages(`https://kudongku99.github.io/wonder-roulette/`)에 배포한다. 원격 저장소는 `kudongku99/wonder-roulette` 이고, `main` 에 푸시하면 `.github/workflows/deploy.yml` 이 설치 → 테스트 → 빌드 → 배포를 한다.
 - 사이트가 `/wonder-roulette/` 하위 경로에 올라가므로 빌드는 상대 경로(`vite.config.ts` 의 `base: './'`)다. 물리 엔진 wasm 도 JS 기준 상대 위치에서 찾는다. 절대 경로(`/assets/...`)로 파일을 참조하는 코드를 넣지 않는다.
 - 하위 경로 그대로 확인하려면 빌드한 뒤 `.claude/launch.json` 의 `wonder-roulette-pages` 미리보기(`vite preview --base /wonder-roulette/`, 4173 포트)로 `http://localhost:4173/wonder-roulette/` 를 연다.
+- 초대방은 방 서버가 따로 있어야 한다. `pnpm server:deploy` 로 Cloudflare 에 올리고(계정 로그인 필요), 그 주소를 GitHub 저장소 변수 `ROOM_SERVER_URL` 에 넣으면 Pages 빌드가 `VITE_ROOM_SERVER` 로 받는다. 변수가 비어 있으면 배포판에 초대방 버튼이 보이지 않는다. 방 서버가 이 사이트의 요청만 받도록 `server:deploy` 스크립트가 `--var ALLOWED_ORIGINS:https://kudongku99.github.io` 를 넘긴다(경로 없이 출처만). `server/wrangler.jsonc` 의 값은 로컬 개발에서 막히지 않게 비워 둔다.
 - pnpm 버전은 `package.json` 의 `packageManager`(12.16.1)로 고정하고, 잠금 파일도 이 버전을 기록한다. CI 는 `--frozen-lockfile` 로 설치하므로 `package.json` 이나 `pnpm-workspace.yaml` 을 바꾸면 `pnpm install` 로 잠금 파일을 같이 갱신해 올린다.
-- pnpm 12 는 승인 안 된 의존성 빌드 스크립트가 있으면 설치를 실패시킨다. `pnpm-workspace.yaml` 의 `allowBuilds` 에 `esbuild`, `@parcel/watcher` 를 `false`(실행 안 함)로 적어 두었다. 둘 다 스크립트 없이도 빌드·테스트가 된다. 새 의존성이 같은 경고를 내면 여기에 적는다.
+- pnpm 12 는 승인 안 된 의존성 빌드 스크립트가 있으면 설치를 실패시킨다. `pnpm-workspace.yaml` 의 `allowBuilds` 에 `esbuild`, `@parcel/watcher` 를 `false`(실행 안 함)로 적어 두었다. 둘 다 스크립트 없이도 빌드·테스트가 된다. 새 의존성이 같은 경고를 내면 여기에 적는다. 방 서버용 `wrangler` 가 끌어오는 `workerd`, `sharp` 도 같은 이유로 `false` 다.
 
 ## 화면 흐름과 UI
 
@@ -52,6 +55,36 @@ pnpm simulate goals 6,16,30   # 골인 시각 전체를 JSON 으로 출력
 - 맵 선택의 썸네일은 맵 데이터로 런타임에 그린다(`stageThumbnail.ts`). 장애물을 2D 로 그리는 코드(`src/render/stage2d.ts`)는 미니맵과 같이 쓴다.
 - 번역은 `src/i18n.ts` 다. 한국어 표가 키의 기준이고 영어 표는 같은 키를 모두 가져야 타입 검사를 통과한다. 화면 글자는 `t('키')` 로만 넣는다. 언어는 브라우저 언어로 정한다.
 - 결과 화면은 따로 없다. 1등이 확정되면 HUD 의 순위표(`RankBoard`)가 화면 가운데로 커지고(`is-result`), 게임은 뒤에서 전원 골인까지 계속된다. 골인 전인 행은 반투명하다가 결승선을 지나면 불투명해진다.
+
+## 초대방
+
+초대 링크로 들어온 사람들이 같은 방에서 같은 화면을 보는 모드다.
+
+```
+로비 ──(초대방 만들기)──▶ 대기실 ⇄ 맵 선택(방장만)
+`?room=코드` 주소 ──────▶ 대기실 ──(나가기, 방 없음, 내보내짐)──▶ 로비
+`?result=코드-판` 주소 ──▶ 결과 보기 ──▶ 로비
+대기실 ──(방장이 시작)──▶ 게임 화면(카운트다운) ──▶ 진행 ──▶ 결과 ──(방장: 다시 하기)──▶ 게임 화면
+                              └────────(방장: 대기실로, 방장 빠짐)────────▶ 대기실
+```
+
+- 방 서버는 `server/` 의 Cloudflare Worker 다. `index.ts` 가 입구(`POST /rooms`, `GET /rooms/:code/ws`, `GET /rooms/:code/results/:round`)이고 `room.ts` 의 Durable Object `Room` 하나가 방 하나다. 같은 파일의 `Limiter` 는 방 만들기 횟수 제한(한 주소에서 10분에 10개)이다. 앱과 타입 환경이 달라(`server/tsconfig.json`, DOM 없음) 따로 검사한다.
+- 방의 규칙은 `src/room/roomState.ts` 의 순수 함수에 있고 서버와 화면이 같이 가져다 쓴다. 서버 전용 API 나 DOM 을 여기에 넣지 않는다. 주고받는 메시지 모양과 검증은 `src/room/protocol.ts` 다.
+- 서버가 방 상태(`RoomState`)의 주인이다. 요청을 받으면 `applyMessage` 로 고치고, 바뀐 상태 **전체**를 방 안 모두에게 보낸다. 화면은 받은 상태를 그릴 뿐 스스로 고치지 않는다.
+- 구슬 목록은 닉네임을 넣은 사람마다 하나 + 방장이 직접 넣은 이름(`extras`)이다(`roomMarbles`). 구슬 상한 100개는 둘을 합쳐 센다. 맵 바꾸기와 이름 직접 넣기는 방장만 한다.
+- 사람은 탭마다 따로 가진 비밀 값(`roomClientId`, sessionStorage)으로 알아본다. 새로고침하면 같은 사람으로 돌아오고, 끊긴 사람은 30초 기다렸다가 뺀다(`GRACE_MS`). 스스로 나가면(`leave`) 바로 뺀다. 방장이 빠지면 연결된 사람 중 가장 먼저 들어온 사람이 방장이 된다. 비밀 값은 서버 밖으로 내보내지 않고 방 안에서는 짧은 공개 id 만 쓴다.
+- 브라우저는 웹소켓 연결이 거절된 이유를 읽지 못한다. 그래서 없는 방도 일단 연결을 받고 `error` 메시지와 닫기 코드(`CLOSE_NOT_FOUND` 등)로 알린다.
+- 방 서버 주소는 빌드할 때 `VITE_ROOM_SERVER` 로 넣는다. 개발 서버에서는 같은 기기의 8787 포트를 쓴다. 주소가 없는 빌드는 초대방 버튼을 숨기고 `?room=` 도 무시한다. 방 서버 미리보기는 `.claude/launch.json` 의 `wonder-roulette-rooms` 다.
+- **경기는 방장의 브라우저에서만 돈다.** 방장은 평소처럼 물리를 돌리면서 `Roulette.setBroadcast` 로 50ms 마다 스냅샷(`src/room/snapshot.ts`: 구슬 자리와 순위, 골인한 구슬, 움직이거나 부서지는 장애물, 연출 값, 출발까지 남은 시간)을 내보낸다. 나머지는 `Roulette.watch` 로 물리 없이 그 스냅샷을 따라 그린다. 결과가 하나뿐이라 화면이 어긋날 수 없다. 참가자 쪽에서 물리를 돌리거나 순위를 따로 계산하는 코드를 넣지 않는다.
+- 받아 보는 쪽은 `RemoteGame`(`src/room/remoteGame.ts`)이 `IPhysics` 자리에 들어간다. 받은 것보다 120ms 늦은 시각의 앞뒤 스냅샷 사이를 이어 구슬과 장애물의 자리를 내고, `Marble` 은 평소처럼 물리에서 자리를 읽는다. 그래서 렌더러·HUD·카메라 추적은 혼자 할 때와 같은 코드다. 카메라는 방장의 연출 값만 받고 자기 화면 크기에 맞게 따로 움직이며, 각도·배율은 각자 정한다.
+- 서버는 판의 시작과 끝만 안다(`RoomState.phase`, `round`, `roster`). 방장이 섞은 구슬 순서(`roster`, 자리가 구슬 id)를 `start` 로 보내면 방의 구슬 목록과 이름 구성이 같은지만 확인한다. 카운트다운·출발·골인·결과는 스냅샷으로 전해지고, `Roulette` 이 혼자 할 때와 같은 이벤트(`started`, `winner`, `finish`)를 내서 `app.ts` 가 화면을 넘긴다.
+- 스냅샷은 첫 글자(`s`)로 구분하고 서버는 내용을 읽지 않은 채 방장의 것만 나머지에게 넘긴다. 방장의 브라우저가 만든 값이므로 받는 쪽이 `parseSnapshot` 으로 모양을 확인한다.
+- 방장이 경기 중에 새로고침하면 돌리던 판이 사라지므로 돌아오자마자 `end` 를 보낸다(`followRound`). 방장이 방에서 빠지면 서버가 대기실로 되돌린다(`drop`). 방장 탭이 뒤로 가 화면 갱신이 멈추면 스냅샷도 멈추고, 참가자 HUD 가 안내를 띄운다(`HudFrame.stalled`).
+- 초대방에서는 빨리 감기 버튼을 숨기고, 결과 화면의 버튼이 역할에 따라 다르다(`Hud.setMode`). 방장은 다시 하기·대기실로(모두 같이 넘어간다), 참가자는 나가기만 있다.
+- 응원(`cheer`)은 방 상태에 넣지 않는다. 서버가 한 사람당 1초에 두 번까지만 받아 방 안 모두에게 넘기고, HUD 의 `Cheers` 가 띄운다. 이모지는 `protocol.ts` 의 `CHEERS` 목록 안의 순번으로 주고받는다.
+- 방장은 모든 순위가 정해지면(`finish`) 순위를 `result` 로 보낸다. 서버는 이번 판 구슬과 맞는지 확인하고(`rankedNames`) 방과 따로 저장한다. 방이 지워진 뒤에도 7일 동안 `?result=코드-판` 으로 볼 수 있고(`ResultView`), 결과가 남아 있는 방 코드는 다시 쓰지 않는다. `RoomState.resultRound` 가 이번 판이면 결과 화면에 링크 복사 버튼이 생긴다.
+- 방장 넘기기(`transfer`)는 대기실에서 연결된 사람에게만 한다. 내보내기(`kick`)는 자리를 지우고 연결을 `CLOSE_KICKED` 로 끊는다. 내보낸 사람이 링크를 다시 열면 새 사람으로 들어온다.
+- 대기실 화면(`src/ui/roomLobby.ts`)은 로비와 같은 자리·바탕(`.lobby`)을 쓰고, 뒤의 구슬 박스가 방의 구슬 목록을 따라간다. 다른 화면 모듈처럼 콜백만 받고, 서버 연결(`RoomClient`)과 잇는 일은 `app.ts` 가 한다.
 
 ## 로비 구슬 박스
 
@@ -107,7 +140,7 @@ pnpm simulate goals 6,16,30   # 골인 시각 전체를 JSON 으로 출력
 - 장애물 재질에는 항상 자체 발광이 들어가고 `EffectComposer` 로 블룸을 건다. 밝기 값들은 화면을 보며 맞춘 것이라, 바꿀 때는 화면으로 확인한다.
 - 골인 축하 효과(`ConfettiMeshes`)는 시드와 경과 시간만으로 조각 위치를 계산해 프레임 사이 상태가 없다.
 - 디버그 그림은 `DebugPlane` 이 2D 캔버스에 한 번 그려 장애물 뒤쪽 평면의 텍스처로 쓴다. `WorldDebugDraw` 는 월드 좌표로 그리는 2D 함수 그대로다.
-- WebGL 이 필요한 `ThreeWorldRenderer` 자체는 테스트하지 않는다. GL 없이 돌아가는 `cameraRig`, `StageMeshes`, `MarbleMeshes`, `ConfettiMeshes`, `projectMarble` 을 단위 테스트한다. HUD 와 UI 는 DOM 이 필요 없는 부분(`rankRows`, `nameList`, `ScreenMachine`, `i18n`, `stageRangeX`)만 테스트한다. `LobbyBox` 는 가짜 `IPhysics` 를 넣어 테스트한다. 맵 안쪽 칸(`reachableFrom`), 화면 사다리꼴(`groundQuad`), 시점 읽기와 끌기·배율(`parseCameraView`, `dragCameraView`, `zoomCameraView`), 미니맵 미리보기 뒤 카메라 복귀(`Camera.lock`), 사용자 배율과 결승 연출(`viewZoom`, `finishAngle`)도 DOM 없이 테스트한다. 테스트 환경에 DOM 이 없으므로 규칙은 DOM 을 만지는 클래스 밖에 둔다. `DebugPlane` 은 DOM 캔버스가 필요해 테스트가 없다. 화면은 개발 서버에서 직접 확인한다.
+- WebGL 이 필요한 `ThreeWorldRenderer` 자체는 테스트하지 않는다. GL 없이 돌아가는 `cameraRig`, `StageMeshes`, `MarbleMeshes`, `ConfettiMeshes`, `projectMarble` 을 단위 테스트한다. HUD 와 UI 는 DOM 이 필요 없는 부분(`rankRows`, `nameList`, `ScreenMachine`, `i18n`, `stageRangeX`)만 테스트한다. `LobbyBox` 는 가짜 `IPhysics` 를 넣어 테스트한다. 초대방은 방 규칙과 메시지 검증(`roomState`, `protocol`), 스냅샷을 이어 그리는 계산(`RemoteGame`, 가짜 맵 데이터로)을 테스트하고, 방 서버(Durable Object)와 연결은 개발 서버 두 탭으로 직접 확인한다. 맵 안쪽 칸(`reachableFrom`), 화면 사다리꼴(`groundQuad`), 시점 읽기와 끌기·배율(`parseCameraView`, `dragCameraView`, `zoomCameraView`), 미니맵 미리보기 뒤 카메라 복귀(`Camera.lock`), 사용자 배율과 결승 연출(`viewZoom`, `finishAngle`)도 DOM 없이 테스트한다. 테스트 환경에 DOM 이 없으므로 규칙은 DOM 을 만지는 클래스 밖에 둔다. `DebugPlane` 은 DOM 캔버스가 필요해 테스트가 없다. 화면은 개발 서버에서 직접 확인한다.
 
 ## 원본과 달라진 점
 
@@ -136,6 +169,7 @@ pnpm simulate goals 6,16,30   # 골인 시각 전체를 JSON 으로 출력
 | 3D 렌더링 | Three.js (프레임워크 없이 바닐라 TypeScript) |
 | 물리 | box2d-wasm (원본 유지) |
 | 빌드 | Vite |
+| 초대방 서버 | Cloudflare Workers + Durable Objects (`server/`, wrangler) |
 | 테스트 | Vitest + 원본에서 가져온 `simulate` 스크립트 |
 | 패키지 매니저 | pnpm |
 | 린트·포맷 | Biome (원본 설정 유지: 2칸 스페이스, 작은따옴표, 세미콜론, 줄 폭 120) |

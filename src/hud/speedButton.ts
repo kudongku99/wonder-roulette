@@ -18,4 +18,9 @@ export class SpeedButton {
       onToggle(this._on);
     });
   }
+
+  /** 켜져 있으면 끈다 */
+  reset() {
+    if (this._on) this.node.click();
+  }
 }

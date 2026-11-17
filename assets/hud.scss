@@ -371,3 +371,158 @@
     font-size: 40px;
   }
 }
+
+// 초대방: 출발 전 카운트다운과 방장 화면이 멈췄다는 안내
+
+.hud-countdown {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  color: #fff;
+  font: 400 min(38vh, 240px) / 1 var(--font-display);
+  text-shadow: var(--glow-magenta), 0 0 60px rgba(255, 61, 242, 0.6);
+  transform: translate(-50%, -50%);
+
+  &.is-tick {
+    animation: countdown-tick 1s ease-out both;
+  }
+}
+
+@keyframes countdown-tick {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.6);
+  }
+
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  100% {
+    opacity: 0.35;
+    transform: translate(-50%, -50%) scale(0.85);
+  }
+}
+
+.hud-stalled {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  max-width: 90%;
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-panel);
+  border: 1px solid var(--color-gold);
+  border-radius: 999px;
+  box-shadow: var(--glow-gold);
+  color: var(--color-gold);
+  font-size: 14px;
+  text-align: center;
+  transform: translateX(-50%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-countdown.is-tick {
+    animation: none;
+  }
+}
+
+// 초대방: 응원. 화면 아래 가운데의 이모지 버튼과, 누르면 떠오르는 이모지
+
+.cheers {
+  position: absolute;
+  inset: 0;
+}
+
+.cheer-bar {
+  position: absolute;
+  bottom: 22px;
+  left: 50%;
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background: var(--color-panel);
+  border: 1px solid rgba(41, 243, 255, 0.45);
+  border-radius: 999px;
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
+.cheer-button {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 50%;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.1s;
+
+  &:hover,
+  &:focus-visible {
+    background: rgba(234, 246, 255, 0.12);
+    outline: none;
+  }
+
+  &:active {
+    transform: scale(0.85);
+  }
+}
+
+.cheer-stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.cheer-float {
+  position: absolute;
+  bottom: 70px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  transform: translateX(-50%);
+  animation: cheer-float 2.2s ease-out both;
+}
+
+.cheer-emoji {
+  font-size: 40px;
+  line-height: 1;
+}
+
+.cheer-name {
+  max-width: 120px;
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  text-shadow: var(--text-outline);
+  white-space: nowrap;
+}
+
+@keyframes cheer-float {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 20px) scale(0.5);
+  }
+
+  15% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1.15);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -42vh) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cheer-float {
+    animation-duration: 0.01s;
+    animation-fill-mode: none;
+  }
+}

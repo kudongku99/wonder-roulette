@@ -23,6 +23,30 @@ pnpm dev
 
 로비에서 이름을 입력하고 엔터를 치면 목록에 들어가고 구슬이 박스로 떨어집니다. 쉼표로 구분한 여러 이름을 한 번에 넣을 수 있고, `이름*3` 처럼 쓰면 같은 이름의 구슬을 여러 개 넣습니다. 구슬은 모두 합쳐 100개까지이며, 입력한 이름은 브라우저에 저장됩니다.
 
+### 초대방 (개발 중)
+
+로비의 "초대방 만들기"를 누르면 방이 생기고, 초대 링크로 들어온 사람은 닉네임을 넣어 자기 구슬을 방에 올립니다. 맵은 방장이 고르고, 방장이 시작하면 모두 같은 카운트다운 뒤에 같은 경기와 같은 결과를 봅니다. 경기는 방장의 브라우저에서 돌고 나머지는 그 모습을 받아 그리므로, 방장이 탭을 뒤로 보내면 경기가 잠시 멈춥니다.
+
+초대방은 방 서버(Cloudflare Workers + Durable Objects, `server/`)가 필요합니다. 개발할 때는 터미널을 하나 더 열어 방 서버를 같이 띄웁니다.
+
+```shell
+pnpm server:dev   # http://localhost:8787
+```
+
+경기 중에는 화면 아래의 이모지로 응원을 보낼 수 있고, 끝난 판은 결과 화면의 "결과 링크 복사"로 순위표 주소를 남길 수 있습니다(7일 동안 열립니다). 방장은 대기실에서 다른 사람을 내보내거나 방장 자리를 넘길 수 있습니다.
+
+#### 초대방 배포
+
+방 서버는 Cloudflare 계정으로 직접 배포합니다. 무료 플랜으로 됩니다.
+
+1. `pnpm exec wrangler login` 으로 로그인합니다.
+2. `package.json` 의 `server:deploy` 가 `ALLOWED_ORIGINS` 에 사이트 출처(`https://kudongku99.github.io`)를 넣어 올립니다. 다른 주소에 사이트를 올린다면 이 값을 바꿉니다. `server/wrangler.jsonc` 의 값은 로컬 개발용으로 비워 둡니다.
+3. `pnpm server:deploy` 를 실행하면 `https://wonder-roulette-rooms.<계정>.workers.dev` 같은 주소가 나옵니다.
+4. GitHub 저장소 Settings → Secrets and variables → Actions → Variables 에 `ROOM_SERVER_URL` 이라는 이름으로 그 주소를 넣습니다.
+5. `main` 에 다시 올리면 Pages 빌드가 그 주소를 받아 초대방 버튼이 나타납니다.
+
+직접 빌드할 때는 `VITE_ROOM_SERVER` 에 방 서버 주소를 넣어야 초대방 버튼이 보입니다.
+
 ```shell
 pnpm build      # 프로덕션 빌드
 pnpm test       # 테스트

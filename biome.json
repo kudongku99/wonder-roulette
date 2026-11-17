@@ -41,6 +41,6 @@
     }
   },
   "files": {
-    "includes": ["src/**", "scripts/**", "tests/**", "vite.config.ts"]
+    "includes": ["src/**", "scripts/**", "tests/**", "server/**", "!**/.wrangler", "vite.config.ts"]
   }
 }

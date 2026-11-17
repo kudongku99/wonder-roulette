@@ -9,11 +9,16 @@ const USER_SCROLL_HOLD = 2000;
 
 type RowView = { node: HTMLElement; rankNode: HTMLElement; rank: number; finished: boolean };
 
+/** 혼자 하는지, 초대방의 방장인지 참가자인지. 결과 화면의 버튼이 달라진다 */
+export type HudMode = 'solo' | 'host' | 'guest';
+
 export type RankBoardActions = {
   /** 순위표를 복사했을 때 */
   onCopy(): void;
   onReplay(): void;
   onLobby(): void;
+  /** 결과 링크를 복사했을 때 */
+  onLinkCopied(): void;
 };
 
 /**
@@ -29,6 +34,10 @@ export class RankBoard {
   private _count = el('div', 'rank-count');
   private _list = el('ol', 'rank-list');
   private _actions = el('footer', 'rank-actions');
+  private _replay = el('button', 'ui-button is-primary', t('result.replay'));
+  private _lobby = el('button', 'ui-button', t('result.lobby'));
+  private _share = el('button', 'ui-button is-quiet', t('result.share'));
+  private _link: string | null = null;
   private _rows = new Map<Marble, RowView>();
   private _finished = -1;
   private _total = -1;
@@ -40,13 +49,18 @@ export class RankBoard {
     this._winner.append(el('div', 'rank-winner-title', 'WINNER'), this._winnerName);
     this._winner.hidden = true;
 
-    const replay = el('button', 'ui-button is-primary', t('result.replay'));
-    const lobby = el('button', 'ui-button', t('result.lobby'));
+    const replay = this._replay;
+    const lobby = this._lobby;
     replay.type = 'button';
     lobby.type = 'button';
     replay.addEventListener('click', actions.onReplay);
     lobby.addEventListener('click', actions.onLobby);
-    this._actions.append(replay, lobby);
+    this._share.type = 'button';
+    this._share.hidden = true;
+    this._share.addEventListener('click', () => {
+      if (this._link) navigator.clipboard?.writeText(this._link).then(actions.onLinkCopied);
+    });
+    this._actions.append(replay, lobby, this._share);
     this._actions.hidden = true;
 
     this.node.append(this._winner, this._count, this._list, this._actions);
@@ -58,6 +72,21 @@ export class RankBoard {
     this._list.addEventListener('dblclick', () => {
       navigator.clipboard?.writeText(this._tsv).then(actions.onCopy);
     });
+  }
+
+  /**
+   * 방장은 다시 하기와 대기실로(모두 같이 넘어간다), 참가자는 방 나가기만 누를 수 있다.
+   * 혼자 할 때는 다시 하기와 로비로다
+   */
+  setMode(mode: HudMode) {
+    this._replay.hidden = mode === 'guest';
+    this._lobby.textContent = t(mode === 'solo' ? 'result.lobby' : mode === 'host' ? 'result.room' : 'room.leave');
+  }
+
+  /** 이 판의 결과를 다시 볼 수 있는 주소. 서버에 결과가 남은 뒤에 생긴다. null 이면 버튼을 숨긴다 */
+  setResultLink(url: string | null) {
+    this._link = url;
+    this._share.hidden = url === null;
   }
 
   update({ winners, marbles, winner, finished }: HudFrame) {

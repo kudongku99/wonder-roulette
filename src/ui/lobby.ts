@@ -18,16 +18,19 @@ export class Lobby {
   private _count = el('span', 'lobby-count');
   private _next = el('button', 'ui-button is-primary', t('lobby.next'));
   private _clear = el('button', 'ui-button is-quiet', t('lobby.clear'));
+  private _invite = el('button', 'ui-button is-quiet lobby-invite', t('lobby.invite'));
   private _list: NameEntry[] = [];
 
   /**
    * @param onChange 목록이 바뀔 때마다 부른다
    * @param onNext 다음 버튼을 눌렀을 때
+   * @param onInvite 초대방 만들기를 눌렀을 때. 끝날 때까지 버튼을 잠근다. 없으면 버튼을 보이지 않는다
    */
   constructor(
     initial: string[],
     private onChange: (list: NameEntry[]) => void,
-    onNext: () => void
+    onNext: () => void,
+    onInvite?: () => Promise<void>
   ) {
     const card = el('div', 'ui-panel lobby-card');
     const logo = el('h1', 'logo');
@@ -64,7 +67,24 @@ export class Lobby {
     this._clear.addEventListener('click', () => this.setList([]));
     footer.append(this._count, this._clear, this._next);
 
-    card.append(logo, label, this._input, el('p', 'lobby-hint', t('lobby.hint')), this._chips, this._notice, footer);
+    this._invite.type = 'button';
+    this._invite.hidden = !onInvite;
+    this._invite.addEventListener('click', async () => {
+      this._invite.disabled = true;
+      await onInvite?.();
+      this._invite.disabled = false;
+    });
+
+    card.append(
+      logo,
+      label,
+      this._input,
+      el('p', 'lobby-hint', t('lobby.hint')),
+      this._chips,
+      this._notice,
+      footer,
+      this._invite
+    );
     this.node.append(card);
 
     this._list = addNames([], initial.join(',')).list;
@@ -77,6 +97,12 @@ export class Lobby {
 
   focus() {
     this._input.focus();
+  }
+
+  /** 목록 아래에 한 줄 안내를 띄운다 */
+  notify(text: string) {
+    this._notice.hidden = false;
+    this._notice.textContent = text;
   }
 
   private add(text: string) {

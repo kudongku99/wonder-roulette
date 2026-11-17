@@ -38,3 +38,31 @@ export function loadMapIndex(mapCount: number): number {
 export function saveMapIndex(index: number) {
   write(MAP_KEY, String(index));
 }
+
+const NICKNAME_KEY = 'roulette3d:nickname';
+const CLIENT_ID_KEY = 'roulette3d:clientId';
+
+/** 초대방에서 마지막으로 쓴 닉네임. 없으면 빈 글 */
+export function loadNickname(): string {
+  return read(NICKNAME_KEY) ?? '';
+}
+
+export function saveNickname(nickname: string) {
+  write(NICKNAME_KEY, nickname);
+}
+
+/**
+ * 초대방 서버가 같은 사람인지 알아보는 비밀 값. 탭마다 따로 두어(sessionStorage) 새로고침하면 같은 사람으로 돌아오고,
+ * 같은 브라우저의 다른 탭은 다른 사람으로 들어간다
+ */
+export function roomClientId(): string {
+  try {
+    const saved = sessionStorage.getItem(CLIENT_ID_KEY);
+    if (saved) return saved;
+    const created = crypto.randomUUID();
+    sessionStorage.setItem(CLIENT_ID_KEY, created);
+    return created;
+  } catch {
+    return crypto.randomUUID();
+  }
+}

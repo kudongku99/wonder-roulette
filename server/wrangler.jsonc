@@ -1,0 +1,15 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "wonder-roulette-rooms",
+  "main": "index.ts",
+  "compatibility_date": "2026-11-01",
+  "send_metrics": false,
+  "durable_objects": {
+    "bindings": [{ "name": "ROOMS", "class_name": "Room" }, { "name": "LIMITS", "class_name": "Limiter" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room", "Limiter"] }],
+  // 방을 만들고 들어올 수 있는 사이트. 쉼표로 여러 개를 적는다. 비워 두면 가리지 않는다(개발용).
+  // 배포할 때는 package.json 의 server:deploy 가 --var 로 사이트 출처를 넣는다
+  "vars": { "ALLOWED_ORIGINS": "" },
+  "dev": { "port": 8787 }
+}

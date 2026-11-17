@@ -1,12 +1,14 @@
-export type Screen = 'lobby' | 'mapSelect' | 'game' | 'running' | 'result';
+export type Screen = 'lobby' | 'room' | 'mapSelect' | 'game' | 'running' | 'result' | 'shared';
 
 /** 화면마다 갈 수 있는 다음 화면 */
 const TRANSITIONS: Record<Screen, Screen[]> = {
-  lobby: ['mapSelect'],
-  mapSelect: ['lobby', 'game'],
-  game: ['mapSelect', 'running'],
-  running: ['result'],
-  result: ['game', 'lobby'],
+  lobby: ['mapSelect', 'room'],
+  room: ['lobby', 'mapSelect', 'game'],
+  mapSelect: ['lobby', 'room', 'game'],
+  game: ['mapSelect', 'running', 'room'],
+  running: ['result', 'room'],
+  result: ['game', 'lobby', 'room'],
+  shared: ['lobby'],
 };
 
 /**

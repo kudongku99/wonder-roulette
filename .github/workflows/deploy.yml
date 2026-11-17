@@ -29,7 +29,10 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
+      # 초대방 서버 주소. 저장소 Settings → Variables 의 ROOM_SERVER_URL 이 비어 있으면 초대방 버튼이 보이지 않는다
       - run: pnpm build
+        env:
+          VITE_ROOM_SERVER: ${{ vars.ROOM_SERVER_URL }}
 
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5

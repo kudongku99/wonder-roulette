@@ -10,12 +10,14 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "pnpm typecheck && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit",
-    "lint": "biome check --fix src/ scripts/ tests/",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p server",
+    "lint": "biome check --fix src/ scripts/ tests/ server/",
     "test": "vitest run",
-    "simulate": "tsx scripts/simulate.ts"
+    "simulate": "tsx scripts/simulate.ts",
+    "server:dev": "wrangler dev --config server/wrangler.jsonc",
+    "server:deploy": "wrangler deploy --config server/wrangler.jsonc --var ALLOWED_ORIGINS:https://kudongku99.github.io"
   },
   "dependencies": {
     "@fontsource/black-han-sans": "^5.3.0",
@@ -25,12 +27,14 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.4",
+    "@cloudflare/workers-types": "5.20261113.1",
     "@types/node": "^26.6.6",
     "@types/three": "^0.187.0",
     "sass": "^1.108.1",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vite": "^8.3.7",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.0",
+    "wrangler": "^4.162.0"
   }
 }
