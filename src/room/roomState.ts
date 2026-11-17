@@ -153,7 +153,7 @@ function setNickname(state: RoomState, memberId: string, raw: string): RoomResul
 export function applyMessage(
   state: RoomState,
   memberId: string,
-  message: Exclude<ClientMessage, { type: 'hello' | 'leave' | 'cheer' }>
+  message: Exclude<ClientMessage, { type: 'hello' | 'leave' | 'cheer' | 'chat' }>
 ): RoomResult {
   if (message.type === 'nickname') {
     return state.phase === 'waiting' ? setNickname(state, memberId, message.nickname) : fail('busy');

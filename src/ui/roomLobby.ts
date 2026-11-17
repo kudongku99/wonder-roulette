@@ -3,6 +3,7 @@ import type { RoomStatus } from '../room/roomClient';
 import { MAX_NICKNAME_LENGTH, marbleCount, type RoomState, roomMarbles } from '../room/roomState';
 import { el, marbleColor } from '../utils/dom';
 import { MAX_MARBLES } from '../utils/utils';
+import { ChatBox } from './chatBox';
 
 /** "복사됨" 을 보여 주는 시간 (ms) */
 const COPIED_MS = 1500;
@@ -19,6 +20,7 @@ export type RoomLobbyActions = {
   transfer(memberId: string): void;
   /** 방장이 그 사람을 내보낸다 */
   kick(memberId: string): void;
+  chat(text: string): void;
   leave(): void;
 };
 
@@ -53,6 +55,7 @@ export class RoomLobby {
   private _count = el('span', 'lobby-count');
   private _start = el('button', 'ui-button is-primary', t('room.start'));
   private _waitHost = el('p', 'lobby-hint room-wait', t('room.waitHost'));
+  private _chat: ChatBox;
   private _open = false;
   private _total = 0;
   /** 서버가 마지막으로 알려 준 내 닉네임. 입력 중인 글을 덮어쓰지 않으려고 바뀔 때만 입력창에 넣는다 */
@@ -63,6 +66,7 @@ export class RoomLobby {
     private actions: RoomLobbyActions,
     savedNickname: string
   ) {
+    this._chat = new ChatBox(actions.chat);
     const card = el('div', 'ui-panel lobby-card room-card');
     const title = el('h2', 'screen-title room-title', t('room.heading'));
     title.append(this._code);
@@ -147,6 +151,8 @@ export class RoomLobby {
       mapRow,
       this._hostTools,
       this._waitHost,
+      el('h3', 'lobby-label', t('chat.label')),
+      this._chat.node,
       footer
     );
     this.node.append(card);
@@ -159,6 +165,7 @@ export class RoomLobby {
     this._myNickname = undefined;
     this._notice.hidden = true;
     this._members.replaceChildren();
+    this._chat.clear();
     this._extras.replaceChildren();
     this._membersLabel.textContent = t('room.members', { n: 0 });
     this._mapTitle.textContent = '';
@@ -201,6 +208,7 @@ export class RoomLobby {
     }
     this._join.textContent = t(myNickname === null ? 'room.join' : 'room.rename');
     this._withdraw.hidden = myNickname === null;
+    this._chat.setEnabled(myNickname !== null);
 
     // 구슬 색은 게임에서 순서대로 색상환을 돌므로, 목록 안의 위치로 색을 정한다
     const marbles = roomMarbles(state);
@@ -259,6 +267,10 @@ export class RoomLobby {
       })
     );
     this._count.textContent = t('lobby.count', { n: total, max: MAX_MARBLES });
+  }
+
+  addChat(name: string, text: string, mine: boolean) {
+    this._chat.add(name, text, mine);
   }
 
   private memberButton(label: string, onClick: () => void) {

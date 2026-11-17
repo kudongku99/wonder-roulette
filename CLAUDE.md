@@ -34,7 +34,7 @@ pnpm server:deploy       # 초대방 서버를 Cloudflare 에 배포 (계정 로
 
 ## 배포
 
-- GitHub Pages(`https://kudongku99.github.io/wonder-roulette/`)에 배포한다. 원격 저장소는 `kudongku99/wonder-roulette` 이고, `main` 에 푸시하면 `.github/workflows/deploy.yml` 이 설치 → 테스트 → 빌드 → 배포를 한다.
+- GitHub Pages(`https://kudongku99.github.io/wonder-roulette/`)에 배포한다. 원격 저장소는 `kudongku99/wonder-roulette` 이고, `main` 에 푸시하면 `.github/workflows/deploy.yml` 이 테스트 → 방 서버 배포(`server` job, 저장소 Secrets 의 `CLOUDFLARE_API_TOKEN` 필요) → 화면 빌드 → Pages 배포 순으로 한다. 옛 화면이 새 서버에 붙는 일이 없도록 서버가 먼저다.
 - 사이트가 `/wonder-roulette/` 하위 경로에 올라가므로 빌드는 상대 경로(`vite.config.ts` 의 `base: './'`)다. 물리 엔진 wasm 도 JS 기준 상대 위치에서 찾는다. 절대 경로(`/assets/...`)로 파일을 참조하는 코드를 넣지 않는다.
 - 하위 경로 그대로 확인하려면 빌드한 뒤 `.claude/launch.json` 의 `wonder-roulette-pages` 미리보기(`vite preview --base /wonder-roulette/`, 4173 포트)로 `http://localhost:4173/wonder-roulette/` 를 연다.
 - 초대방은 방 서버가 따로 있어야 한다. `pnpm server:deploy` 로 Cloudflare 에 올리고(계정 로그인 필요), 그 주소를 GitHub 저장소 변수 `ROOM_SERVER_URL` 에 넣으면 Pages 빌드가 `VITE_ROOM_SERVER` 로 받는다. 변수가 비어 있으면 배포판에 초대방 버튼이 보이지 않는다. 방 서버가 이 사이트의 요청만 받도록 `server:deploy` 스크립트가 `--var ALLOWED_ORIGINS:https://kudongku99.github.io` 를 넘긴다(경로 없이 출처만). `server/wrangler.jsonc` 의 값은 로컬 개발에서 막히지 않게 비워 둔다.

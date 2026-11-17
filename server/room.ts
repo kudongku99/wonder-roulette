@@ -1,5 +1,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import {
+  CHAT_WINDOW_MS,
+  CHATS_PER_WINDOW,
   CHEERS_PER_SECOND,
   CLOSE_KICKED,
   CLOSE_NOT_FOUND,
@@ -47,6 +49,8 @@ type Attachment = {
   memberId: string | null;
   /** 최근에 응원을 보낸 시각들. 횟수 제한에 쓴다 */
   cheers?: number[];
+  /** 최근에 채팅을 보낸 시각들. 응원과 따로 센다 */
+  chats?: number[];
 };
 
 function send(ws: WebSocket, message: ServerMessage) {
@@ -130,6 +134,11 @@ export class Room extends DurableObject<Env> {
       return;
     }
 
+    if (message.type === 'chat') {
+      this.chat(record, ws, memberId, message.text);
+      return;
+    }
+
     const before = record.state;
     const result = applyMessage(before, memberId, message);
     if (!result.ok) {
@@ -183,9 +192,22 @@ export class Room extends DurableObject<Env> {
     const attachment = from.deserializeAttachment() as Attachment;
     const recent = (attachment.cheers ?? []).filter((at) => now - at < 1000);
     if (recent.length >= CHEERS_PER_SECOND) return;
-    from.serializeAttachment({ memberId, cheers: [...recent, now] } satisfies Attachment);
+    from.serializeAttachment({ ...attachment, memberId, cheers: [...recent, now] } satisfies Attachment);
     for (const ws of this.ctx.getWebSockets()) {
       if (memberOf(ws) !== null) send(ws, { type: 'cheer', memberId, emoji });
+    }
+  }
+
+  /** 채팅을 방 안 모두에게(보낸 사람 포함) 넘긴다. 닉네임이 없는 사람의 글과 너무 잦은 글은 버린다 */
+  private chat(record: RoomRecord, from: WebSocket, memberId: string, text: string) {
+    if (!record.state.members.some((member) => member.id === memberId && member.nickname !== null)) return;
+    const now = Date.now();
+    const attachment = from.deserializeAttachment() as Attachment;
+    const recent = (attachment.chats ?? []).filter((at) => now - at < CHAT_WINDOW_MS);
+    if (recent.length >= CHATS_PER_WINDOW) return;
+    from.serializeAttachment({ ...attachment, memberId, chats: [...recent, now] } satisfies Attachment);
+    for (const ws of this.ctx.getWebSockets()) {
+      if (memberOf(ws) !== null) send(ws, { type: 'chat', memberId, text });
     }
   }
 

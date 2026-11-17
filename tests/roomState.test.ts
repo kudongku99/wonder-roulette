@@ -1,5 +1,13 @@
 import { expect, test } from 'vitest';
-import { CHEERS, parseClientMessage, readResultId, readRoomCode, resultId } from '../src/room/protocol';
+import {
+  CHEERS,
+  cleanChat,
+  MAX_CHAT_LENGTH,
+  parseClientMessage,
+  readResultId,
+  readRoomCode,
+  resultId,
+} from '../src/room/protocol';
 import {
   applyMessage,
   cleanNickname,
@@ -258,4 +266,17 @@ test('응원은 목록 안의 순번만 받는다', () => {
   expect(parseClientMessage('{"type":"kick","memberId":"abc"}')).toEqual({ type: 'kick', memberId: 'abc' });
   expect(parseClientMessage('{"type":"result","ranks":[1,0]}')).toEqual({ type: 'result', ranks: [1, 0] });
   expect(parseClientMessage('{"type":"result","ranks":[1,"0"]}')).toBeNull();
+});
+
+test('채팅 글은 공백과 줄바꿈을 정리하고 상한에서 끊는다', () => {
+  expect(cleanChat('  안녕\n\n  하세요  ')).toBe('안녕 하세요');
+  expect(cleanChat('   \n ')).toBeNull();
+  expect(Array.from(cleanChat('가'.repeat(MAX_CHAT_LENGTH + 20)) ?? '')).toHaveLength(MAX_CHAT_LENGTH);
+});
+
+test('채팅 요청은 정리한 글만 받고 빈 글과 글이 아닌 값은 거절한다', () => {
+  expect(parseClientMessage('{"type":"chat","text":"  hi \\n there "}')).toEqual({ type: 'chat', text: 'hi there' });
+  expect(parseClientMessage('{"type":"chat","text":"   "}')).toBeNull();
+  expect(parseClientMessage('{"type":"chat","text":3}')).toBeNull();
+  expect(parseClientMessage(`{"type":"chat","text":"${'a'.repeat(MAX_CHAT_LENGTH * 4 + 1)}"}`)).toBeNull();
 });

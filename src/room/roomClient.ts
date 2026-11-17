@@ -20,6 +20,8 @@ export type RoomHandlers = {
   onRejected(names: string[]): void;
   /** 누군가 보낸 응원. emoji 는 CHEERS 안의 순번이다 */
   onCheer(memberId: string, emoji: number): void;
+  /** 누군가 보낸 채팅 */
+  onChat(memberId: string, text: string): void;
   /** 방장이 보낸 경기 스냅샷 */
   onSnapshot(snapshot: Snapshot): void;
   onError(error: RoomError): void;
@@ -136,6 +138,9 @@ export class RoomClient {
         break;
       case 'cheer':
         this.handlers.onCheer(message.memberId, message.emoji);
+        break;
+      case 'chat':
+        this.handlers.onChat(message.memberId, message.text);
         break;
       case 'error':
         if (message.error === 'notFound' || message.error === 'roomFull') this.end(message.error);

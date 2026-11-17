@@ -3,6 +3,7 @@ import { CHEERS } from '../room/protocol';
 import type { VectorLike } from '../types/VectorLike';
 import { el } from '../utils/dom';
 import { Arrivals } from './arrivals';
+import { ChatBubbles } from './chatBubbles';
 import { Cheers } from './cheers';
 import type { HudFrame } from './hudFrame';
 import { MarbleLabels } from './marbleLabels';
@@ -23,6 +24,8 @@ export type HudActions = {
   toLobby(): void;
   /** 초대방에서 응원을 보낸다. 인자는 CHEERS 안의 순번이다 */
   cheer(emoji: number): void;
+  /** 초대방에서 채팅을 보낸다 */
+  chat(text: string): void;
 };
 
 /**
@@ -37,6 +40,7 @@ export class Hud {
   private _arrivals = new Arrivals();
   private _speed: SpeedButton;
   private _cheers: Cheers;
+  private _chat: ChatBubbles;
   private _countdown = el('div', 'hud-countdown');
   private _stalled = el('div', 'hud-stalled', t('room.stalled'));
   /** 지금 보여 주는 카운트다운 숫자. 없으면 0 */
@@ -55,6 +59,8 @@ export class Hud {
     });
     this._cheers = new Cheers(actions.cheer);
     this._cheers.node.hidden = true;
+    this._chat = new ChatBubbles(actions.chat);
+    this._chat.node.hidden = true;
     this._speed = new SpeedButton(t('hud.fastForward'), actions.setFastForward);
     this._countdown.hidden = true;
     this._stalled.hidden = true;
@@ -67,7 +73,8 @@ export class Hud {
       this._rank.node,
       this._countdown,
       this._stalled,
-      this._cheers.node
+      this._cheers.node,
+      this._chat.node
     );
     parent.append(this.node);
 
@@ -88,6 +95,7 @@ export class Hud {
     this._speed.node.hidden = mode !== 'solo';
     this._rank.setMode(mode);
     this._cheers.node.hidden = mode === 'solo';
+    this._chat.node.hidden = mode === 'solo';
     if (mode === 'solo') this._rank.setResultLink(null);
   }
 
@@ -99,6 +107,16 @@ export class Hud {
   /** 방 안의 누군가가 보낸 응원을 띄운다 */
   showCheer(emoji: number, name: string) {
     if (!this.node.hidden && CHEERS[emoji]) this._cheers.show(CHEERS[emoji], name);
+  }
+
+  /** 방 안의 누군가가 보낸 채팅을 말풍선으로 띄운다 */
+  showChat(name: string, text: string) {
+    if (!this.node.hidden) this._chat.show(name, text);
+  }
+
+  /** 닉네임을 넣은 사람만 채팅 입력창을 쓴다 */
+  setChatEnabled(enabled: boolean) {
+    this._chat.setEnabled(enabled);
   }
 
   update(frame: HudFrame) {

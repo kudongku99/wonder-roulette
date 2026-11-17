@@ -5,6 +5,19 @@ export const CHEERS = ['👏', '🔥', '😂', '😱', '🎉', '🙏'];
 /** 한 사람이 1초에 보낼 수 있는 응원 수 */
 export const CHEERS_PER_SECOND = 2;
 
+/** 채팅 한 줄의 길이 상한 (글자 수) */
+export const MAX_CHAT_LENGTH = 100;
+/** 한 사람이 CHAT_WINDOW_MS 안에 보낼 수 있는 채팅 수. 응원과 따로 센다 */
+export const CHATS_PER_WINDOW = 4;
+export const CHAT_WINDOW_MS = 5000;
+
+/** 채팅 글을 정리한다. 줄바꿈과 겹친 공백을 한 칸으로 줄이고 앞뒤를 자르고 상한에서 끊는다. 빈 글이면 null */
+export function cleanChat(raw: string): string | null {
+  const flat = raw.replace(/\s+/g, ' ').trim();
+  const cut = Array.from(flat).slice(0, MAX_CHAT_LENGTH).join('').trim();
+  return cut || null;
+}
+
 /** 방 코드에 쓰는 글자. 헷갈리는 0·O, 1·I 는 뺐다 */
 export const ROOM_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export const ROOM_CODE_LENGTH = 6;
@@ -44,6 +57,8 @@ export type ClientMessage =
   | { type: 'transfer'; memberId: string }
   /** 응원. emoji 는 CHEERS 안의 순번이다. 방 상태에는 남지 않는다 */
   | { type: 'cheer'; emoji: number }
+  /** 채팅. 닉네임을 넣은 사람만 보낼 수 있다. 방 상태에는 남지 않는다 */
+  | { type: 'chat'; text: string }
   /** 스스로 나간다. 끊긴 것과 달리 기다리지 않고 바로 자리를 비운다 */
   | { type: 'leave' };
 
@@ -53,6 +68,7 @@ export type ServerMessage =
   /** 방장이 넣으려던 이름 중 구슬 상한 때문에 받지 못한 항목 */
   | { type: 'rejected'; names: string[] }
   | { type: 'cheer'; memberId: string; emoji: number }
+  | { type: 'chat'; memberId: string; text: string }
   | { type: 'error'; error: RoomError };
 
 export function isRoomCode(value: string): boolean {
@@ -137,6 +153,11 @@ export function parseClientMessage(raw: string): ClientMessage | null {
       return Number.isInteger(data.emoji) && data.emoji >= 0 && data.emoji < CHEERS.length
         ? { type: 'cheer', emoji: data.emoji }
         : null;
+    case 'chat': {
+      if (!isText(data.text, MAX_CHAT_LENGTH * 4)) return null;
+      const text = cleanChat(data.text);
+      return text === null ? null : { type: 'chat', text };
+    }
     case 'leave':
       return { type: 'leave' };
     default:

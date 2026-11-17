@@ -715,3 +715,44 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+// 초대방 대기실: 대화 목록과 입력창
+
+.chat-box {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: var(--space-2);
+}
+
+.chat-list {
+  min-height: 96px;
+  max-height: 22vh;
+  margin: 0;
+  padding: var(--space-2);
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: var(--radius);
+  list-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(41, 243, 255, 0.5) transparent;
+}
+
+.chat-line {
+  font: 400 15px/1.4 var(--font-body);
+  overflow-wrap: anywhere;
+
+  .chat-name {
+    margin-right: 8px;
+    color: var(--color-cyan);
+    font-weight: 700;
+  }
+
+  &.is-mine .chat-name {
+    color: var(--color-magenta);
+  }
+}
+
+.chat-input {
+  font-size: 16px;
+}

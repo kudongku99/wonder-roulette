@@ -148,9 +148,16 @@ export function startApp(root: HTMLElement, roulette: Roulette) {
           // 맵을 고르던 중에 방장이 아니게 됐으면 대기실로 돌아간다
           if (machine.current === 'mapSelect' && state.hostId !== memberId) machine.go('room');
           hud.setMode(state.hostId === memberId ? 'host' : 'guest');
+          hud.setChatEnabled(!!nickname);
           const kept = state.phase === 'playing' && state.resultRound === state.round;
           hud.setResultLink(kept ? linkWith('result', resultId(state.code, state.round)) : null);
           followRound(session, state, memberId);
+        },
+        onChat: (memberId, text) => {
+          if (room !== session) return;
+          const name = session.state?.members.find((member) => member.id === memberId)?.nickname ?? '';
+          roomLobby.addChat(name, text, memberId === session.memberId);
+          hud.showChat(name, text);
         },
         onSnapshot: (snapshot) => {
           if (room === session && snapshot.r === session.round && !isHost()) roulette.pushSnapshot(snapshot);
@@ -212,6 +219,7 @@ export function startApp(root: HTMLElement, roulette: Roulette) {
       start: requestStart,
       transfer: (memberId) => room?.client.send({ type: 'transfer', memberId }),
       kick: (memberId) => room?.client.send({ type: 'kick', memberId }),
+      chat: (text) => room?.client.send({ type: 'chat', text }),
       leave: () => leaveRoom(),
     },
     loadNickname()
@@ -252,6 +260,7 @@ export function startApp(root: HTMLElement, roulette: Roulette) {
       else leaveRoom();
     },
     cheer: (emoji) => room?.client.send({ type: 'cheer', emoji }),
+    chat: (text) => room?.client.send({ type: 'chat', text }),
   });
   const resultView = new ResultView(() => {
     const url = new URL(location.href);
